@@ -1,0 +1,478 @@
+{% extends "base.html" %}
+{% block title %}Import from PPT - INSIDERS Dubai{% endblock %}
+
+{% block extra_css %}
+<style>
+  .dropzone {
+    border: 3px dashed #1a73e8;
+    border-radius: 12px;
+    padding: 50px 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.2s;
+    background: #f8fbff;
+  }
+  .dropzone.drag-over { background: #e3f0ff; }
+  .dropzone p { color: #555; margin-top: 10px; font-size: 15px; }
+  .dropzone .icon { font-size: 48px; }
+  .file-list { margin-top: 15px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .file-chip {
+    background: #e8f0fe; color: #1a73e8;
+    padding: 5px 12px; border-radius: 20px; font-size: 13px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .file-chip .remove { cursor: pointer; font-weight: bold; color: #999; }
+  .file-chip .remove:hover { color: #ea4335; }
+
+  #analyze-btn { margin-top: 20px; font-size: 16px; padding: 12px 30px; }
+
+  #spinner {
+    display: none; text-align: center; padding: 40px;
+  }
+  .spinner-ring {
+    width: 50px; height: 50px;
+    border: 5px solid #e0e0e0;
+    border-top-color: #1a73e8;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+    margin: 0 auto 15px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #results { display: none; }
+
+  .results-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px;
+  }
+  .results-header h2 { margin: 0; border: none; padding: 0; }
+  .summary-badges { display: flex; gap: 10px; }
+  .badge {
+    padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
+  }
+  .badge.hotel { background: #fce8b2; color: #a05000; }
+  .badge.service { background: #d2e3fc; color: #174ea6; }
+
+  .section-title {
+    font-size: 18px; font-weight: 700; margin: 25px 0 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .select-all-btn {
+    font-size: 12px; padding: 4px 10px;
+    background: #f1f3f4; color: #444; border: 1px solid #ddd;
+    border-radius: 4px; cursor: pointer;
+  }
+
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+  }
+
+  .item-card {
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 16px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    position: relative;
+  }
+  .item-card.selected {
+    border-color: #1a73e8;
+    box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
+  }
+  .item-card .card-check {
+    position: absolute; top: 14px; right: 14px;
+    width: 22px; height: 22px; cursor: pointer;
+    accent-color: #1a73e8;
+  }
+  .item-card .card-type {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px; color: #888; margin-bottom: 6px;
+  }
+  .item-card .card-type.hotel { color: #a05000; }
+  .item-card .card-type.service { color: #174ea6; }
+
+  .item-card .field { margin-bottom: 10px; }
+  .item-card .field label {
+    display: block; font-size: 11px; font-weight: 600;
+    color: #666; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .item-card .field input,
+  .item-card .field textarea,
+  .item-card .field select {
+    width: 100%; padding: 7px 10px; font-size: 13px;
+    border: 1px solid #ddd; border-radius: 6px;
+  }
+  .item-card .field textarea { min-height: 70px; resize: vertical; }
+  .item-card .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .save-bar {
+    position: sticky; bottom: 0;
+    background: white; border-top: 2px solid #1a73e8;
+    padding: 16px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 30px -20px -30px;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.08);
+  }
+  .save-bar .selected-count { font-weight: 600; color: #333; }
+  #save-btn { font-size: 15px; padding: 11px 28px; }
+
+  .error-box {
+    background: #fce8e6; color: #c62828;
+    border: 1px solid #f5c6cb; border-radius: 8px;
+    padding: 16px 20px; margin-top: 20px;
+    display: none;
+  }
+
+  #success-msg {
+    background: #e6f4ea; color: #1e6e2e;
+    border: 1px solid #c3e6cb; border-radius: 8px;
+    padding: 20px; text-align: center; font-size: 16px;
+    display: none; margin-top: 20px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>Import from PowerPoint</h2>
+  <p style="color:#666; margin-bottom:20px;">
+    Upload one or more PPTX files. Claude AI will automatically extract hotels, restaurants,
+    activities, and other services. You can review and edit everything before saving.
+  </p>
+
+  <div class="dropzone" id="dropzone">
+    <div class="icon">📂</div>
+    <strong>Drag & drop PPTX files here</strong>
+    <p>or click to select files</p>
+    <input type="file" id="file-input" multiple accept=".pptx,.ppt" style="display:none">
+  </div>
+  <div class="file-list" id="file-list"></div>
+
+  <button class="btn" id="analyze-btn" onclick="startAnalysis()" disabled>
+    Analyze with Claude AI
+  </button>
+
+  <div class="error-box" id="error-box"></div>
+</div>
+
+<div id="spinner">
+  <div class="spinner-ring"></div>
+  <p style="color:#555; font-size:15px;">Claude is reading the presentations...<br>
+  <small style="color:#999;">This may take 20–40 seconds for large files</small></p>
+</div>
+
+<div id="results">
+  <div class="card">
+    <div class="results-header">
+      <h2>Extracted Content</h2>
+      <div class="summary-badges">
+        <span class="badge hotel" id="hotel-badge">0 hotels</span>
+        <span class="badge service" id="service-badge">0 services</span>
+      </div>
+    </div>
+
+    <div id="hotels-section" style="display:none">
+      <div class="section-title">
+        🏨 Hotels
+        <button class="select-all-btn" onclick="selectAll('hotel')">Select all</button>
+        <button class="select-all-btn" onclick="deselectAll('hotel')">Deselect all</button>
+      </div>
+      <div class="cards-grid" id="hotels-grid"></div>
+    </div>
+
+    <div id="services-section" style="display:none">
+      <div class="section-title" style="margin-top:30px">
+        🎯 Services & Activities
+        <button class="select-all-btn" onclick="selectAll('service')">Select all</button>
+        <button class="select-all-btn" onclick="deselectAll('service')">Deselect all</button>
+      </div>
+      <div class="cards-grid" id="services-grid"></div>
+    </div>
+
+    <div class="save-bar">
+      <span class="selected-count" id="selected-count">0 items selected</span>
+      <button class="btn success" id="save-btn" onclick="saveSelected()">Save Selected</button>
+    </div>
+  </div>
+</div>
+
+<div id="success-msg"></div>
+
+<script>
+const CATEGORIES = [
+  "Accommodation",
+  "Transfers & Transport",
+  "Activities & Excursions",
+  "Dining & Catering",
+  "Events & Entertainment",
+  "Additional Services"
+];
+const UNITS = ["per person", "per room", "per event", "per day", "per group", "fixed"];
+
+let selectedFiles = [];
+let extractedData = { hotels: [], services: [] };
+
+// --- Dropzone ---
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag-over');
+  addFiles([...e.dataTransfer.files]);
+});
+fileInput.addEventListener('change', () => addFiles([...fileInput.files]));
+
+function addFiles(files) {
+  files.forEach(f => {
+    if (f.name.match(/\.pptx?$/i) && !selectedFiles.find(x => x.name === f.name)) {
+      selectedFiles.push(f);
+    }
+  });
+  renderFileList();
+  document.getElementById('analyze-btn').disabled = selectedFiles.length === 0;
+}
+
+function removeFile(name) {
+  selectedFiles = selectedFiles.filter(f => f.name !== name);
+  renderFileList();
+  document.getElementById('analyze-btn').disabled = selectedFiles.length === 0;
+}
+
+function renderFileList() {
+  const list = document.getElementById('file-list');
+  list.innerHTML = selectedFiles.map(f => `
+    <div class="file-chip">
+      📄 ${f.name}
+      <span class="remove" onclick="removeFile('${f.name}')">✕</span>
+    </div>`).join('');
+}
+
+// --- Analysis ---
+async function startAnalysis() {
+  if (selectedFiles.length === 0) return;
+
+  document.getElementById('analyze-btn').disabled = true;
+  document.getElementById('error-box').style.display = 'none';
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('success-msg').style.display = 'none';
+  document.getElementById('spinner').style.display = 'block';
+
+  const form = new FormData();
+  selectedFiles.forEach(f => form.append('files', f));
+
+  try {
+    const resp = await fetch('/admin/import/upload', { method: 'POST', body: form });
+    const data = await resp.json();
+
+    document.getElementById('spinner').style.display = 'none';
+
+    if (!resp.ok || data.error) {
+      showError(data.error || 'Unknown error');
+      document.getElementById('analyze-btn').disabled = false;
+      return;
+    }
+
+    extractedData = data;
+    renderResults(data);
+    document.getElementById('results').style.display = 'block';
+    document.getElementById('analyze-btn').disabled = false;
+  } catch (err) {
+    document.getElementById('spinner').style.display = 'none';
+    showError('Network error: ' + err.message);
+    document.getElementById('analyze-btn').disabled = false;
+  }
+}
+
+function showError(msg) {
+  const box = document.getElementById('error-box');
+  box.textContent = '⚠️ ' + msg;
+  box.style.display = 'block';
+}
+
+// --- Render results ---
+function renderResults(data) {
+  const hotels = data.hotels || [];
+  const services = data.services || [];
+
+  document.getElementById('hotel-badge').textContent = hotels.length + ' hotel' + (hotels.length !== 1 ? 's' : '');
+  document.getElementById('service-badge').textContent = services.length + ' service' + (services.length !== 1 ? 's' : '');
+
+  const hotelsGrid = document.getElementById('hotels-grid');
+  const servicesGrid = document.getElementById('services-grid');
+  hotelsGrid.innerHTML = '';
+  servicesGrid.innerHTML = '';
+
+  hotels.forEach((h, i) => hotelsGrid.appendChild(buildHotelCard(h, i)));
+  services.forEach((s, i) => servicesGrid.appendChild(buildServiceCard(s, i)));
+
+  document.getElementById('hotels-section').style.display = hotels.length ? 'block' : 'none';
+  document.getElementById('services-section').style.display = services.length ? 'block' : 'none';
+
+  updateCount();
+}
+
+function buildHotelCard(h, i) {
+  const card = document.createElement('div');
+  card.className = 'item-card selected';
+  card.dataset.type = 'hotel';
+  card.dataset.idx = i;
+  card.innerHTML = `
+    <input type="checkbox" class="card-check" checked onchange="toggleCard(this)">
+    <div class="card-type hotel">Hotel</div>
+    <div class="field">
+      <label>Name</label>
+      <input type="text" value="${esc(h.name)}" onchange="extractedData.hotels[${i}].name=this.value">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Location</label>
+        <input type="text" value="${esc(h.location || 'Dubai')}" onchange="extractedData.hotels[${i}].location=this.value">
+      </div>
+      <div class="field">
+        <label>Stars</label>
+        <select onchange="extractedData.hotels[${i}].stars=parseInt(this.value)">
+          ${[3,4,5].map(s => `<option ${h.stars==s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <textarea onchange="extractedData.hotels[${i}].description=this.value">${esc(h.description || '')}</textarea>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Single room (AED/night)</label>
+        <input type="number" min="0" value="${h.rate_single_aed || 0}" onchange="extractedData.hotels[${i}].rate_single_aed=parseFloat(this.value)||0">
+      </div>
+      <div class="field">
+        <label>Twin room (AED/night)</label>
+        <input type="number" min="0" value="${h.rate_twin_aed || 0}" onchange="extractedData.hotels[${i}].rate_twin_aed=parseFloat(this.value)||0">
+      </div>
+    </div>`;
+  card.querySelector('.card-check').addEventListener('change', () => updateCount());
+  return card;
+}
+
+function buildServiceCard(s, i) {
+  const catOptions = CATEGORIES.map(c => `<option ${s.category===c?'selected':''}>${c}</option>`).join('');
+  const unitOptions = UNITS.map(u => `<option ${s.unit===u?'selected':''}>${u}</option>`).join('');
+  const card = document.createElement('div');
+  card.className = 'item-card selected';
+  card.dataset.type = 'service';
+  card.dataset.idx = i;
+  card.innerHTML = `
+    <input type="checkbox" class="card-check" checked onchange="toggleCard(this)">
+    <div class="card-type service">${esc(s.category || 'Service')}</div>
+    <div class="field">
+      <label>Name</label>
+      <input type="text" value="${esc(s.name)}" onchange="extractedData.services[${i}].name=this.value">
+    </div>
+    <div class="field">
+      <label>Category</label>
+      <select onchange="extractedData.services[${i}].category=this.value; this.closest('.item-card').querySelector('.card-type').textContent=this.value">
+        ${catOptions}
+      </select>
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <textarea onchange="extractedData.services[${i}].description=this.value">${esc(s.description || '')}</textarea>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Price (AED)</label>
+        <input type="number" min="0" value="${s.price_aed || 0}" onchange="extractedData.services[${i}].price_aed=parseFloat(this.value)||0">
+      </div>
+      <div class="field">
+        <label>Unit</label>
+        <select onchange="extractedData.services[${i}].unit=this.value">
+          ${unitOptions}
+        </select>
+      </div>
+    </div>`;
+  card.querySelector('.card-check').addEventListener('change', () => updateCount());
+  return card;
+}
+
+function toggleCard(checkbox) {
+  checkbox.closest('.item-card').classList.toggle('selected', checkbox.checked);
+  updateCount();
+}
+
+function selectAll(type) {
+  document.querySelectorAll(`.item-card[data-type="${type}"] .card-check`).forEach(cb => {
+    cb.checked = true;
+    cb.closest('.item-card').classList.add('selected');
+  });
+  updateCount();
+}
+
+function deselectAll(type) {
+  document.querySelectorAll(`.item-card[data-type="${type}"] .card-check`).forEach(cb => {
+    cb.checked = false;
+    cb.closest('.item-card').classList.remove('selected');
+  });
+  updateCount();
+}
+
+function updateCount() {
+  const n = document.querySelectorAll('.item-card .card-check:checked').length;
+  document.getElementById('selected-count').textContent = n + ' item' + (n !== 1 ? 's' : '') + ' selected';
+  document.getElementById('save-btn').disabled = n === 0;
+}
+
+// --- Save ---
+async function saveSelected() {
+  const hotels = [...document.querySelectorAll('.item-card[data-type="hotel"]')]
+    .map(card => {
+      const idx = parseInt(card.dataset.idx);
+      return { ...extractedData.hotels[idx], selected: card.querySelector('.card-check').checked };
+    });
+
+  const services = [...document.querySelectorAll('.item-card[data-type="service"]')]
+    .map(card => {
+      const idx = parseInt(card.dataset.idx);
+      return { ...extractedData.services[idx], selected: card.querySelector('.card-check').checked };
+    });
+
+  document.getElementById('save-btn').disabled = true;
+  document.getElementById('save-btn').textContent = 'Saving...';
+
+  try {
+    const resp = await fetch('/admin/import/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hotels, services })
+    });
+    const data = await resp.json();
+
+    if (data.success) {
+      const msg = document.getElementById('success-msg');
+      msg.innerHTML = `✅ Saved successfully: <strong>${data.saved.hotels} hotels</strong> and <strong>${data.saved.services} services</strong>.
+        <br><a href="/admin/hotels" class="btn" style="margin:10px 5px 0">View Hotels</a>
+        <a href="/admin/services" class="btn" style="margin:10px 5px 0">View Services</a>`;
+      msg.style.display = 'block';
+      document.getElementById('results').style.display = 'none';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      showError(data.error || 'Save failed');
+    }
+  } catch (err) {
+    showError('Network error: ' + err.message);
+  } finally {
+    document.getElementById('save-btn').disabled = false;
+    document.getElementById('save-btn').textContent = 'Save Selected';
+  }
+}
+
+function esc(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

@@ -6,18 +6,23 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).parent
 
+# Use LOCALAPPDATA for DB to avoid Cyrillic path issues on Windows
+_DB_DIR = Path(os.environ.get('LOCALAPPDATA', str(BASE_DIR))) / 'insiders_dubai'
+_DB_DIR.mkdir(parents=True, exist_ok=True)
+_DB_PATH = _DB_DIR / 'insiders.db'
+
 class Config:
     """Base configuration"""
     # Flask
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     DEBUG = False
     TESTING = False
-    
+
     # Database
     INSTANCE_PATH = BASE_DIR / 'instance'
     SQLALCHEMY_DATABASE_URI = os.getenv(
         'DATABASE_URL',
-        f"sqlite:///{(INSTANCE_PATH / 'insiders.db').as_posix()}"
+        f"sqlite:///{_DB_PATH.as_posix()}"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     

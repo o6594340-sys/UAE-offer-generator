@@ -1,11 +1,13 @@
 """
 Admin blueprint for managing hotels, services, and currencies
 """
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, current_app
 from werkzeug.utils import secure_filename
 from pathlib import Path
 import os
 from models import db, Hotel, Service, ServiceCategory, Currency
+from utils.pptx_extractor import extract_text_from_pptx
+from utils.ai_extractor import extract_from_pptx_text
 
 admin_bp = Blueprint('admin', __name__, template_folder='templates')
 
@@ -309,3 +311,96 @@ def toggle_service(service_id):
     service.active = not service.active
     db.session.commit()
     return jsonify({'success': True, 'active': service.active})
+
+
+# ===================== PPT IMPORT =====================
+
+ALLOWED_IMPORT_EXTENSIONS = {'pptx', 'ppt'}
+
+
+def _allowed_import(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMPORT_EXTENSIONS
+
+
+@admin_bp.route('/import')
+def import_page():
+    return render_template('admin/import.html')
+
+
+@admin_bp.route('/import/upload', methods=['POST'])
+def import_upload():
+    files = request.files.getlist('files')
+    if not files or all(f.filename == '' for f in files):
+        return jsonify({'error': 'No files uploaded'}), 400
+
+    combined_text_parts = []
+    skipped = []
+
+    for f in files:
+        if not f or not _allowed_import(f.filename):
+            skipped.append(f.filename)
+            continue
+        try:
+            text = extract_text_from_pptx(f.read())
+            if text.strip():
+                combined_text_parts.append(f"=== {f.filename} ===\n{text}")
+        except Exception as e:
+            skipped.append(f"{f.filename} (error: {str(e)})")
+
+    if not combined_text_parts:
+        return jsonify({'error': 'Could not extract text from uploaded files'}), 400
+
+    combined_text = "\n\n".join(combined_text_parts)
+    result = extract_from_pptx_text(combined_text)
+
+    if 'error' in result and not result.get('hotels') and not result.get('services'):
+        return jsonify({'error': result['error']}), 500
+
+    result['skipped'] = skipped
+    return jsonify(result)
+
+
+@admin_bp.route('/import/save', methods=['POST'])
+def import_save():
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data'}), 400
+
+    saved = {'hotels': 0, 'services': 0}
+
+    for h in data.get('hotels', []):
+        if not h.get('selected'):
+            continue
+        hotel = Hotel(
+            name=h.get('name', 'Unknown Hotel'),
+            location=h.get('location', 'Dubai'),
+            description=h.get('description', ''),
+            stars=int(h.get('stars', 5)),
+            rate_single_aed=float(h.get('rate_single_aed', 0)),
+            rate_twin_aed=float(h.get('rate_twin_aed', 0)),
+        )
+        db.session.add(hotel)
+        saved['hotels'] += 1
+
+    for s in data.get('services', []):
+        if not s.get('selected'):
+            continue
+        category_name = s.get('category', 'Additional Services')
+        category = ServiceCategory.query.filter_by(name=category_name).first()
+        if not category:
+            category = ServiceCategory(name=category_name, description='')
+            db.session.add(category)
+            db.session.flush()
+
+        service = Service(
+            name=s.get('name', 'Unknown Service'),
+            description=s.get('description', ''),
+            category_id=category.id,
+            price_aed=float(s.get('price_aed', 0)),
+            unit=s.get('unit', 'per person'),
+        )
+        db.session.add(service)
+        saved['services'] += 1
+
+    db.session.commit()
+    return jsonify({'success': True, 'saved': saved})

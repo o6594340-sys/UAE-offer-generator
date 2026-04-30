@@ -1,0 +1,382 @@
+{% extends "base.html" %}
+{% block title %}New Proposal Brief - INSIDERS Dubai{% endblock %}
+
+{% block extra_css %}
+<style>
+  .brief-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 900px) { .brief-layout { grid-template-columns: 1fr; } }
+
+  /* Upload brief panel */
+  .upload-panel {
+    background: #f0f6ff;
+    border: 2px solid #c5d8f8;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .upload-panel h3 { margin-bottom: 12px; font-size: 16px; color: #1a73e8; }
+
+  .upload-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .tab-btn {
+    padding: 6px 16px; border-radius: 20px; font-size: 13px; cursor: pointer;
+    border: 1px solid #c5d8f8; background: white; color: #555;
+    transition: all 0.2s;
+  }
+  .tab-btn.active { background: #1a73e8; color: white; border-color: #1a73e8; }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .upload-drop {
+    border: 2px dashed #1a73e8; border-radius: 8px;
+    padding: 24px; text-align: center;
+    cursor: pointer; background: white; transition: background 0.2s;
+  }
+  .upload-drop.drag-over { background: #e3f0ff; }
+  .upload-drop p { color: #666; font-size: 13px; margin-top: 6px; }
+  .upload-drop input { display: none; }
+
+  .paste-area {
+    width: 100%; min-height: 100px; padding: 10px;
+    border: 1px solid #ddd; border-radius: 8px; font-size: 13px; resize: vertical;
+  }
+
+  .parse-btn {
+    margin-top: 12px; width: 100%; padding: 10px;
+    font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .parse-spinner { display: none; }
+  .spin { animation: spin 0.8s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .parse-result {
+    margin-top: 10px; padding: 10px 14px; border-radius: 6px;
+    font-size: 13px; display: none;
+  }
+  .parse-result.success { background: #e6f4ea; color: #1e6e2e; }
+  .parse-result.error { background: #fce8e6; color: #c62828; }
+
+  /* Form sections */
+  .form-section { margin-bottom: 24px; }
+  .form-section h3 {
+    font-size: 15px; font-weight: 700; color: #444;
+    margin-bottom: 14px; padding-bottom: 8px;
+    border-bottom: 2px solid #e8f0fe;
+  }
+  .field-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .field-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  @media (max-width: 600px) {
+    .field-grid-2, .field-grid-3 { grid-template-columns: 1fr; }
+  }
+
+  /* Hotel/service selection */
+  .select-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 4px;
+  }
+  .select-item {
+    border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px 12px;
+    cursor: pointer; transition: all 0.15s; background: white; display: flex;
+    align-items: flex-start; gap: 8px; font-size: 13px;
+  }
+  .select-item:hover { border-color: #aac4f5; }
+  .select-item.checked { border-color: #1a73e8; background: #e8f0fe; }
+  .select-item input { margin-top: 2px; accent-color: #1a73e8; flex-shrink: 0; }
+  .select-item .item-name { font-weight: 600; }
+  .select-item .item-meta { color: #888; font-size: 11px; margin-top: 2px; }
+
+  .category-label {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    color: #1a73e8; letter-spacing: 0.5px; margin: 16px 0 6px;
+  }
+
+  .submit-bar {
+    background: white; border-top: 2px solid #1a73e8;
+    padding: 16px 20px; margin: 20px -20px -30px;
+    display: flex; gap: 12px; justify-content: flex-end;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.08);
+    position: sticky; bottom: 0;
+  }
+  .submit-bar .btn { font-size: 15px; padding: 11px 28px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>New Proposal Brief</h2>
+
+  <!-- Upload Brief Panel -->
+  <div class="upload-panel">
+    <h3>⚡ Auto-fill from Brief Document</h3>
+    <div class="upload-tabs">
+      <button class="tab-btn active" onclick="switchTab('file')">Upload file</button>
+      <button class="tab-btn" onclick="switchTab('paste')">Paste text</button>
+    </div>
+
+    <div class="tab-content active" id="tab-file">
+      <div class="upload-drop" id="brief-drop">
+        <div style="font-size:32px">📄</div>
+        <strong>Drop file here or click to select</strong>
+        <p>Word (.docx), PDF, Excel (.xlsx), or text file</p>
+        <input type="file" id="brief-file" accept=".docx,.doc,.pdf,.xlsx,.xls,.txt">
+      </div>
+      <div id="chosen-file" style="margin-top:8px; font-size:13px; color:#1a73e8;"></div>
+    </div>
+
+    <div class="tab-content" id="tab-paste">
+      <textarea class="paste-area" id="paste-text"
+        placeholder="Paste the brief text from email here..."></textarea>
+    </div>
+
+    <button class="btn parse-btn" onclick="parseBrief()">
+      <span class="parse-spinner spin" id="parse-spin">⏳</span>
+      <span id="parse-btn-text">Fill form with Claude AI</span>
+    </button>
+    <div class="parse-result" id="parse-result"></div>
+  </div>
+
+  <!-- Brief Form -->
+  <form id="brief-form" method="POST" action="/brief/submit">
+
+    <div class="brief-layout">
+      <div>
+        <!-- Client Info -->
+        <div class="form-section">
+          <h3>Client Information</h3>
+          <div class="form-group">
+            <label>Company / Client Name *</label>
+            <input type="text" name="company_name" id="f-company" required placeholder="e.g. ACME Corporation">
+          </div>
+          <div class="field-grid-2" style="margin-top:14px">
+            <div class="form-group">
+              <label>Group Type</label>
+              <select name="group_type" id="f-group-type">
+                {% for t in ['Meeting','Incentive','Conference','Exhibition','Team Building','Leisure','Wedding','Other'] %}
+                <option>{{ t }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Industry</label>
+              <input type="text" name="industry" id="f-industry" placeholder="e.g. Finance, Pharma">
+            </div>
+          </div>
+        </div>
+
+        <!-- Trip Details -->
+        <div class="form-section">
+          <h3>Trip Details</h3>
+          <div class="field-grid-3">
+            <div class="form-group">
+              <label>Number of People (Pax) *</label>
+              <input type="number" name="pax" id="f-pax" min="1" required placeholder="50">
+            </div>
+            <div class="form-group">
+              <label>Arrival Date</label>
+              <input type="date" name="arrival_date" id="f-arrival">
+            </div>
+            <div class="form-group">
+              <label>Departure Date</label>
+              <input type="date" name="departure_date" id="f-departure">
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:14px">
+            <label>Currency</label>
+            <select name="currency" id="f-currency">
+              {% for c in currencies %}
+              <option value="{{ c.code }}">{{ c.code }} — {{ c.name }}</option>
+              {% else %}
+              <option value="USD">USD — US Dollar</option>
+              <option value="AED">AED — UAE Dirham</option>
+              <option value="EUR">EUR — Euro</option>
+              <option value="GBP">GBP — British Pound</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Special Requests -->
+        <div class="form-section">
+          <h3>Special Requests / Notes</h3>
+          <div class="form-group">
+            <textarea name="special_requests" id="f-special" rows="5"
+              placeholder="VIP requirements, dietary restrictions, room preferences, budget constraints..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <!-- Hotels -->
+        <div class="form-section">
+          <h3>Select Hotels</h3>
+          {% if hotels %}
+          <div class="select-grid">
+            {% for hotel in hotels %}
+            <label class="select-item" onclick="this.classList.toggle('checked')">
+              <input type="checkbox" name="hotel_ids" value="{{ hotel.id }}">
+              <div>
+                <div class="item-name">{{ hotel.name }}</div>
+                <div class="item-meta">{{ hotel.location }} · {{ hotel.stars }}★</div>
+                <div class="item-meta">Single: {{ hotel.rate_single_aed }} AED · Twin: {{ hotel.rate_twin_aed }} AED</div>
+              </div>
+            </label>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p style="color:#999; font-size:13px;">No hotels yet. <a href="/admin/hotels">Add hotels</a> first.</p>
+          {% endif %}
+        </div>
+
+        <!-- Services -->
+        <div class="form-section">
+          <h3>Select Services</h3>
+          {% if services %}
+            {% set current_cat = namespace(name='') %}
+            <div class="select-grid">
+            {% for service in services %}
+              {% if service.category and service.category.name != current_cat.name %}
+                {% set current_cat.name = service.category.name %}
+              {% endif %}
+              <label class="select-item" onclick="this.classList.toggle('checked')">
+                <input type="checkbox" name="service_ids" value="{{ service.id }}">
+                <div>
+                  <div class="item-name">{{ service.name }}</div>
+                  <div class="item-meta">{{ service.category.name if service.category else '' }}</div>
+                  <div class="item-meta">{{ service.price_aed }} AED · {{ service.unit }}</div>
+                </div>
+              </label>
+            {% endfor %}
+            </div>
+          {% else %}
+          <p style="color:#999; font-size:13px;">No services yet. <a href="/admin/services">Add services</a> first.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="submit-bar">
+      <a href="/admin/" class="btn" style="background:#f1f3f4; color:#333;">Cancel</a>
+      <button type="submit" class="btn success">Generate Proposal</button>
+    </div>
+  </form>
+</div>
+
+<script>
+// --- Tabs ---
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i === (name==='file'?0:1)));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// --- Drop zone ---
+const dropZone = document.getElementById('brief-drop');
+const fileInput = document.getElementById('brief-file');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) {
+    fileInput.files = e.dataTransfer.files;
+    document.getElementById('chosen-file').textContent = '📎 ' + e.dataTransfer.files[0].name;
+  }
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0])
+    document.getElementById('chosen-file').textContent = '📎 ' + fileInput.files[0].name;
+});
+
+// --- Parse brief ---
+async function parseBrief() {
+  const spin = document.getElementById('parse-spin');
+  const btnText = document.getElementById('parse-btn-text');
+  const resultBox = document.getElementById('parse-result');
+
+  spin.style.display = 'inline-block';
+  btnText.textContent = 'Analyzing...';
+  resultBox.style.display = 'none';
+
+  const form = new FormData();
+  const activeTab = document.querySelector('.tab-content.active').id;
+
+  if (activeTab === 'tab-file') {
+    const f = fileInput.files[0];
+    if (!f) { showParseResult('error', 'Please select a file first'); resetParseBtn(); return; }
+    form.append('file', f);
+  } else {
+    const text = document.getElementById('paste-text').value.trim();
+    if (!text) { showParseResult('error', 'Please paste some text first'); resetParseBtn(); return; }
+    form.append('text', text);
+  }
+
+  try {
+    const resp = await fetch('/brief/parse', { method: 'POST', body: form });
+    const data = await resp.json();
+
+    if (!resp.ok || data.error) {
+      showParseResult('error', data.error || 'Failed to parse brief');
+    } else {
+      fillForm(data);
+      showParseResult('success', '✅ Form filled! Review and adjust before submitting.');
+    }
+  } catch (err) {
+    showParseResult('error', 'Network error: ' + err.message);
+  }
+
+  resetParseBtn();
+}
+
+function fillForm(data) {
+  if (data.company_name) document.getElementById('f-company').value = data.company_name;
+  if (data.industry) document.getElementById('f-industry').value = data.industry;
+  if (data.pax && data.pax > 0) document.getElementById('f-pax').value = data.pax;
+  if (data.arrival_date) document.getElementById('f-arrival').value = data.arrival_date;
+  if (data.departure_date) document.getElementById('f-departure').value = data.departure_date;
+  if (data.special_requests) document.getElementById('f-special').value = data.special_requests;
+
+  if (data.group_type) {
+    const sel = document.getElementById('f-group-type');
+    for (let opt of sel.options) {
+      if (opt.value === data.group_type) { sel.value = data.group_type; break; }
+    }
+  }
+  if (data.currency) {
+    const sel = document.getElementById('f-currency');
+    for (let opt of sel.options) {
+      if (opt.value === data.currency) { sel.value = data.currency; break; }
+    }
+  }
+}
+
+function showParseResult(type, msg) {
+  const box = document.getElementById('parse-result');
+  box.className = 'parse-result ' + type;
+  box.textContent = msg;
+  box.style.display = 'block';
+}
+
+function resetParseBtn() {
+  document.getElementById('parse-spin').style.display = 'none';
+  document.getElementById('parse-btn-text').textContent = 'Fill form with Claude AI';
+}
+
+// Checkbox items
+document.querySelectorAll('.select-item input').forEach(cb => {
+  cb.addEventListener('change', () => {
+    cb.closest('.select-item').classList.toggle('checked', cb.checked);
+  });
+});
+</script>
+{% endblock %}
