@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Currencies - INSIDERS Dubai{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>💱 Manage Currencies</h2>
+    <p>Set exchange rates for your proposals. AED is the base currency.</p>
+    
+    {% if currencies %}
+    <table>
+        <thead>
+            <tr>
+                <th>Currency</th>
+                <th>Real Rate (Reference)</th>
+                <th>Custom Rate (For Calculations)</th>
+                <th>Active</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for currency in currencies %}
+            <tr>
+                <td>
+                    <strong>{{ currency.code }}</strong><br>
+                    <small>{{ currency.name }}</small>
+                </td>
+                <td>
+                    <input type="number" step="0.01" value="{{ currency.real_rate }}" disabled style="width: 120px;">
+                </td>
+                <td>
+                    <input type="number" step="0.01" 
+                           value="{{ currency.custom_rate }}"
+                           class="currency-rate"
+                           data-currency-id="{{ currency.id }}"
+                           style="width: 120px;">
+                </td>
+                <td>
+                    <input type="checkbox" 
+                           {% if currency.active %}checked{% endif %}
+                           class="currency-active"
+                           data-currency-id="{{ currency.id }}">
+                </td>
+                <td>
+                    <button class="btn" onclick="saveCurrency({{ currency.id }})">Save</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No currencies found. <a href="/admin/currencies/init" onclick="return confirm('Initialize default currencies?')">Click here to initialize</a></p>
+    {% endif %}
+</div>
+
+<script>
+function saveCurrency(currencyId) {
+    const rateInput = document.querySelector(`input.currency-rate[data-currency-id="${currencyId}"]`);
+    const activeInput = document.querySelector(`input.currency-active[data-currency-id="${currencyId}"]`);
+    
+    const data = {
+        custom_rate: parseFloat(rateInput.value),
+        active: activeInput.checked
+    };
+    
+    fetch(`/admin/currencies/update/${currencyId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Currency updated successfully!');
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+</script>
+{% endblock %}

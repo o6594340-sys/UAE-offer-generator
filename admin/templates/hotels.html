@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Hotels - INSIDERS Dubai{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>🏨 Hotels</h2>
+    <a href="/admin/hotels/add" class="btn success">+ Add New Hotel</a>
+    
+    {% if hotels %}
+    <table>
+        <thead>
+            <tr>
+                <th>Hotel Name</th>
+                <th>Location</th>
+                <th>Stars</th>
+                <th>Single Room (AED/night)</th>
+                <th>Twin Room (AED/night)</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for hotel in hotels %}
+            <tr>
+                <td>
+                    <strong>{{ hotel.name }}</strong>
+                    {% if hotel.photo_url %}<br><small>📷 Photo attached</small>{% endif %}
+                </td>
+                <td>{{ hotel.location }}</td>
+                <td>⭐ {{ hotel.stars }}</td>
+                <td>{{ "%.2f"|format(hotel.rate_single_aed) }}</td>
+                <td>{{ "%.2f"|format(hotel.rate_twin_aed) }}</td>
+                <td>
+                    <div class="actions">
+                        <a href="/admin/hotels/edit/{{ hotel.id }}" class="btn">Edit</a>
+                        <form method="POST" action="/admin/hotels/delete/{{ hotel.id }}" 
+                              style="display: inline;" 
+                              onsubmit="return confirm('Delete this hotel?');">
+                            <button type="submit" class="btn danger">Delete</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No hotels found. <a href="/admin/hotels/add" class="btn">Add your first hotel</a></p>
+    {% endif %}
+</div>
+{% endblock %}

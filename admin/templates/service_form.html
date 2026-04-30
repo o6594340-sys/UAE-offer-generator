@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}{% if service %}Edit Service{% else %}Add Service{% endif %} - INSIDERS Dubai{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>{% if service %}✏️ Edit Service: {{ service.name }}{% else %}➕ Add New Service{% endif %}</h2>
+    
+    <form method="POST" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="name">Service Name *</label>
+            <input type="text" id="name" name="name" 
+                   value="{% if service %}{{ service.name }}{% endif %}" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="category_id">Category *</label>
+            <select id="category_id" name="category_id" required>
+                <option value="">-- Select Category --</option>
+                {% for cat in categories %}
+                <option value="{{ cat.id }}" 
+                        {% if service and service.category_id == cat.id %}selected{% endif %}>
+                    {{ cat.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" name="description">{% if service %}{{ service.description }}{% endif %}</textarea>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-group">
+                <label for="price_aed">Price (AED) *</label>
+                <input type="number" id="price_aed" name="price_aed" 
+                       value="{% if service %}{{ service.price_aed }}{% endif %}" 
+                       step="0.01" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="unit">Unit</label>
+                <select id="unit" name="unit">
+                    <option value="per person" {% if service and service.unit == 'per person' %}selected{% endif %}>per person</option>
+                    <option value="per room" {% if service and service.unit == 'per room' %}selected{% endif %}>per room</option>
+                    <option value="per group" {% if service and service.unit == 'per group' %}selected{% endif %}>per group</option>
+                    <option value="per event" {% if service and service.unit == 'per event' %}selected{% endif %}>per event</option>
+                    <option value="per day" {% if service and service.unit == 'per day' %}selected{% endif %}>per day</option>
+                    <option value="fixed" {% if service and service.unit == 'fixed' %}selected{% endif %}>fixed</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="photo">Service Photo</label>
+            <input type="file" id="photo" name="photo" accept="image/*">
+            {% if service and service.photo_url %}<small>Current: {{ service.photo_url }}</small>{% endif %}
+        </div>
+        
+        <div class="form-submit">
+            <button type="submit" class="btn success">
+                {% if service %}Save Changes{% else %}Add Service{% endif %}
+            </button>
+            <a href="/admin/services" class="btn">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

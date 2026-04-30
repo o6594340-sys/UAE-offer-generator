@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - INSIDERS Dubai{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Admin Dashboard</h2>
+    <p>Manage your INSIDERS Dubai proposal generator</p>
+</div>
+
+<div class="stats">
+    <div class="stat-box">
+        <div class="stat-number">{{ stats.hotels }}</div>
+        <div class="stat-label">Hotels</div>
+        <a href="/admin/hotels" class="btn" style="margin-top: 10px; width: 100%;">Manage</a>
+    </div>
+    
+    <div class="stat-box">
+        <div class="stat-number">{{ stats.services }}</div>
+        <div class="stat-label">Services</div>
+        <a href="/admin/services" class="btn" style="margin-top: 10px; width: 100%;">Manage</a>
+    </div>
+    
+    <div class="stat-box">
+        <div class="stat-number">{{ stats.currencies }}</div>
+        <div class="stat-label">Currencies</div>
+        <a href="/admin/currencies" class="btn" style="margin-top: 10px; width: 100%;">Manage</a>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Quick Setup</h2>
+    <p>If this is your first time, initialize currencies first:</p>
+    <form method="POST" action="/admin/currencies/init">
+        <button type="submit" class="btn success">Initialize Currencies (USD, EUR, AED, GBP)</button>
+    </form>
+</div>
+{% endblock %}

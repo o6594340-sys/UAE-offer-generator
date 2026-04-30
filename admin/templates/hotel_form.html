@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}{% if hotel %}Edit Hotel{% else %}Add Hotel{% endif %} - INSIDERS Dubai{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>{% if hotel %}✏️ Edit Hotel: {{ hotel.name }}{% else %}➕ Add New Hotel{% endif %}</h2>
+    
+    <form method="POST" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="name">Hotel Name *</label>
+            <input type="text" id="name" name="name" value="{% if hotel %}{{ hotel.name }}{% endif %}" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="location">Location (City)</label>
+            <input type="text" id="location" name="location" value="{% if hotel %}{{ hotel.location }}{% endif %}" placeholder="Dubai, Abu Dhabi, etc.">
+        </div>
+        
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" name="description">{% if hotel %}{{ hotel.description }}{% endif %}</textarea>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-group">
+                <label for="stars">Stars</label>
+                <select id="stars" name="stars">
+                    <option value="3" {% if hotel and hotel.stars == 3 %}selected{% endif %}>3 Stars</option>
+                    <option value="4" {% if hotel and hotel.stars == 4 %}selected{% endif %}>4 Stars</option>
+                    <option value="5" {% if not hotel or hotel.stars == 5 %}selected{% endif %}>5 Stars</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="rate_single_aed">Single Room Rate (AED/night) *</label>
+                <input type="number" id="rate_single_aed" name="rate_single_aed" 
+                       value="{% if hotel %}{{ hotel.rate_single_aed }}{% endif %}" 
+                       step="0.01" required>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="rate_twin_aed">Twin/Double Room Rate (AED/night) *</label>
+            <input type="number" id="rate_twin_aed" name="rate_twin_aed" 
+                   value="{% if hotel %}{{ hotel.rate_twin_aed }}{% endif %}" 
+                   step="0.01" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="photo">Hotel Photo</label>
+            <input type="file" id="photo" name="photo" accept="image/*">
+            {% if hotel and hotel.photo_url %}<small>Current: {{ hotel.photo_url }}</small>{% endif %}
+        </div>
+        
+        <div class="form-submit">
+            <button type="submit" class="btn success">
+                {% if hotel %}Save Changes{% else %}Add Hotel{% endif %}
+            </button>
+            <a href="/admin/hotels" class="btn">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Services - INSIDERS Dubai{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>🎯 Services</h2>
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+        <a href="/admin/services/add" class="btn success">+ Add New Service</a>
+        <a href="/admin/categories" class="btn">Manage Categories</a>
+    </div>
+    
+    <!-- Category filter -->
+    <div style="margin-bottom: 20px;">
+        <label>Filter by Category:</label>
+        <select onchange="location = '/admin/services?category=' + this.value" style="padding: 10px; border-radius: 4px; border: 1px solid #ddd;">
+            <option value="">All Categories</option>
+            {% for cat in categories %}
+            <option value="{{ cat.name }}" {% if selected_category == cat.name %}selected{% endif %}>{{ cat.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    
+    {% if services %}
+    <table>
+        <thead>
+            <tr>
+                <th>Service Name</th>
+                <th>Category</th>
+                <th>Unit</th>
+                <th>Price (AED)</th>
+                <th>Active</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for service in services %}
+            <tr>
+                <td>
+                    <strong>{{ service.name }}</strong>
+                    {% if service.photo_url %}<br><small>📷 Photo attached</small>{% endif %}
+                </td>
+                <td>{{ service.category.name }}</td>
+                <td>{{ service.unit }}</td>
+                <td>{{ "%.2f"|format(service.price_aed) }}</td>
+                <td>
+                    <input type="checkbox" 
+                           {% if service.active %}checked{% endif %}
+                           onchange="toggleService({{ service.id }})">
+                </td>
+                <td>
+                    <div class="actions">
+                        <a href="/admin/services/edit/{{ service.id }}" class="btn">Edit</a>
+                        <form method="POST" action="/admin/services/delete/{{ service.id }}" 
+                              style="display: inline;" 
+                              onsubmit="return confirm('Delete this service?');">
+                            <button type="submit" class="btn danger">Delete</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No services found. <a href="/admin/services/add" class="btn">Add your first service</a></p>
+    {% endif %}
+</div>
+
+<script>
+function toggleService(serviceId) {
+    fetch(`/admin/services/toggle/${serviceId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('Service status updated');
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+</script>
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Categories - INSIDERS Dubai{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>📁 Service Categories</h2>
+    
+    <form method="POST" action="/admin/categories/add" style="margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px;">
+        <div>
+            <input type="text" name="name" placeholder="Category name" required>
+        </div>
+        <div>
+            <input type="text" name="description" placeholder="Description (optional)">
+        </div>
+        <button type="submit" class="btn success">+ Add Category</button>
+    </form>
+    
+    {% if categories %}
+    <table>
+        <thead>
+            <tr>
+                <th>Category Name</th>
+                <th>Description</th>
+                <th>Services Count</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for category in categories %}
+            <tr>
+                <td><strong>{{ category.name }}</strong></td>
+                <td>{{ category.description or '-' }}</td>
+                <td>
+                    <a href="/admin/services?category={{ category.name }}" style="color: #1a73e8;">
+                        {{ category.services|length }} services
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No categories found. Create your first category above.</p>
+    {% endif %}
+</div>
+
+<div class="card" style="margin-top: 20px;">
+    <h3>Default Categories (Quick Setup)</h3>
+    <p>Common service categories for Dubai tourism:</p>
+    <ul style="margin-left: 20px;">
+        <li>Accommodation</li>
+        <li>Transfers & Transport</li>
+        <li>Activities & Excursions</li>
+        <li>Dining & Catering</li>
+        <li>Events & Entertainment</li>
+        <li>Additional Services</li>
+    </ul>
+</div>
+{% endblock %}

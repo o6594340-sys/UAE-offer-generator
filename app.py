@@ -1,0 +1,59 @@
+"""
+INSIDERS Dubai - Commercial Proposal Generator
+Main application file
+"""
+import os
+from pathlib import Path
+from flask import Flask, render_template, redirect, url_for, flash
+from flask_sqlalchemy import SQLAlchemy
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Import configuration
+from config import config
+from models import db
+
+# Create Flask app
+def create_app(config_name='development'):
+    """Application factory"""
+    app = Flask(__name__)
+    
+    # Load configuration
+    app.config.from_object(config[config_name])
+    
+    # Create instance and upload directories if not exists
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    os.makedirs(app.config['INSTANCE_PATH'], exist_ok=True)
+    
+    # Initialize database
+    db.init_app(app)
+    
+    # Create tables
+    with app.app_context():
+        db.create_all()
+    
+    # Register blueprints
+    from admin import admin_bp
+    from proposal import proposal_bp
+    
+    app.register_blueprint(admin_bp, url_prefix='/admin')
+    app.register_blueprint(proposal_bp, url_prefix='/')
+    
+    # Main route
+    @app.route('/')
+    def index():
+        return redirect(url_for('proposal.brief_form'))
+    
+    @app.route('/health')
+    def health():
+        return {'status': 'ok'}, 200
+    
+    return app
+
+
+if __name__ == '__main__':
+    app = create_app(os.getenv('FLASK_ENV', 'development'))
+    port = int(os.getenv('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=os.getenv('FLASK_ENV') == 'development')
