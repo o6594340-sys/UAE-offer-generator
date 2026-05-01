@@ -9,7 +9,7 @@ from io import BytesIO
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, send_file
 from models import db, Hotel, Service, ServiceCategory, Currency, Proposal
 from utils.brief_extractor import extract_text_from_brief
-from utils.ai_extractor import extract_from_brief_text
+from utils.ai_extractor import extract_from_brief_text, suggest_program
 
 proposal_bp = Blueprint('proposal', __name__, template_folder='templates')
 
@@ -126,6 +126,46 @@ def parse_brief():
     result = extract_from_brief_text(text)
     if 'error' in result:
         return jsonify({'error': result['error']}), 500
+    return jsonify(result)
+
+
+@proposal_bp.route('/brief/suggest', methods=['POST'])
+def brief_suggest():
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    nights = data.get('nights', 3)
+
+    services = Service.query.filter_by(active=True).all()
+    services_list = [
+        {
+            'id': s.id,
+            'name': s.name,
+            'category': s.category.name if s.category else 'Other',
+            'price': s.price_aed,
+            'unit': s.unit or 'per person',
+            'description': s.description or '',
+        }
+        for s in services
+        if s.category and s.category.name != 'Accommodation'
+    ]
+
+    if not services_list:
+        return jsonify({'error': 'No services in database yet. Add services first.'}), 400
+
+    result = suggest_program(
+        group_type=data.get('group_type', ''),
+        industry=data.get('industry', ''),
+        pax=int(data.get('pax', 1)),
+        nights=int(nights),
+        special_requests=data.get('special_requests', ''),
+        services=services_list,
+    )
+
+    if 'error' in result:
+        return jsonify({'error': result['error']}), 500
+
     return jsonify(result)
 
 

@@ -101,12 +101,39 @@
   .submit-bar {
     background: white; border-top: 2px solid #1a73e8;
     padding: 16px 20px; margin: 20px -20px -30px;
-    display: flex; gap: 12px; justify-content: flex-end;
+    display: flex; gap: 12px; justify-content: flex-end; align-items: center;
     border-radius: 0 0 8px 8px;
     box-shadow: 0 -4px 12px rgba(0,0,0,0.08);
     position: sticky; bottom: 0;
   }
   .submit-bar .btn { font-size: 15px; padding: 11px 28px; }
+
+  .suggest-btn {
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    color: white; border: none; border-radius: 8px;
+    padding: 11px 24px; font-size: 15px; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    transition: opacity 0.2s;
+  }
+  .suggest-btn:hover { opacity: 0.9; }
+  .suggest-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .suggest-panel {
+    display: none;
+    background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+    border: 2px solid #c4b5fd;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+  }
+  .suggest-panel h4 {
+    margin: 0 0 10px; color: #5b21b6; font-size: 15px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .suggest-panel p { color: #374151; font-size: 14px; line-height: 1.6; margin: 0; }
+  .suggest-panel .suggest-meta {
+    margin-top: 12px; font-size: 12px; color: #7c3aed; font-weight: 600;
+  }
 </style>
 {% endblock %}
 
@@ -236,6 +263,13 @@
           {% endif %}
         </div>
 
+        <!-- AI Suggest panel -->
+        <div class="suggest-panel" id="suggest-panel">
+          <h4>✨ AI Program Suggestion</h4>
+          <p id="suggest-text"></p>
+          <div class="suggest-meta" id="suggest-meta"></div>
+        </div>
+
         <!-- Services -->
         <div class="form-section">
           <h3>Select Services</h3>
@@ -265,7 +299,11 @@
 
     <div class="submit-bar">
       <a href="/admin/" class="btn" style="background:#f1f3f4; color:#333;">Cancel</a>
-      <button type="submit" class="btn success">Generate Proposal</button>
+      <button type="button" class="suggest-btn" id="suggest-btn" onclick="suggestProgram()">
+        <span id="suggest-spin" style="display:none">⏳</span>
+        <span id="suggest-btn-text">✨ Suggest Program with AI</span>
+      </button>
+      <button type="submit" class="btn success">Generate Proposal →</button>
     </div>
   </form>
 </div>
@@ -378,5 +416,79 @@ document.querySelectorAll('.select-item input').forEach(cb => {
     cb.closest('.select-item').classList.toggle('checked', cb.checked);
   });
 });
+
+// --- Suggest Program ---
+async function suggestProgram() {
+  const btn = document.getElementById('suggest-btn');
+  const spin = document.getElementById('suggest-spin');
+  const btnText = document.getElementById('suggest-btn-text');
+
+  const arrival = document.getElementById('f-arrival').value;
+  const departure = document.getElementById('f-departure').value;
+  let nights = 3;
+  if (arrival && departure) {
+    const ms = new Date(departure) - new Date(arrival);
+    nights = Math.max(1, Math.round(ms / 86400000));
+  }
+
+  const payload = {
+    group_type: document.getElementById('f-group-type').value,
+    industry: document.getElementById('f-industry').value,
+    pax: parseInt(document.getElementById('f-pax').value) || 1,
+    nights: nights,
+    special_requests: document.getElementById('f-special').value,
+  };
+
+  btn.disabled = true;
+  spin.style.display = 'inline-block';
+  btnText.textContent = 'AI is building program...';
+
+  try {
+    const resp = await fetch('/brief/suggest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+
+    if (!resp.ok || data.error) {
+      alert('Error: ' + (data.error || 'Unknown error'));
+      return;
+    }
+
+    // Uncheck all services first
+    document.querySelectorAll('.select-item input[name="service_ids"]').forEach(cb => {
+      cb.checked = false;
+      cb.closest('.select-item').classList.remove('checked');
+    });
+
+    // Check suggested services
+    const ids = data.service_ids || [];
+    let matched = 0;
+    ids.forEach(id => {
+      const cb = document.querySelector(`.select-item input[value="${id}"]`);
+      if (cb) {
+        cb.checked = true;
+        cb.closest('.select-item').classList.add('checked');
+        matched++;
+      }
+    });
+
+    // Show explanation panel
+    const panel = document.getElementById('suggest-panel');
+    document.getElementById('suggest-text').textContent = data.program_summary || '';
+    document.getElementById('suggest-meta').textContent =
+      `${matched} service${matched !== 1 ? 's' : ''} selected · ${nights} night${nights !== 1 ? 's' : ''} · ${payload.pax} pax · ${payload.group_type}`;
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch (err) {
+    alert('Network error: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    spin.style.display = 'none';
+    btnText.textContent = '✨ Suggest Program with AI';
+  }
+}
 </script>
 {% endblock %}

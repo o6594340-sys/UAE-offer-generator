@@ -3,6 +3,82 @@ import os
 import anthropic
 
 
+SUGGEST_SYSTEM_PROMPT = """You are a senior program planner at INSIDERS Tourism Dubai, a UAE destination management company.
+You create tailored event programs for corporate and leisure groups visiting the UAE.
+Return ONLY valid JSON, no explanation outside the JSON."""
+
+SUGGEST_PROMPT = """Based on the client brief below, select the most suitable services from our catalog and create a recommended program.
+
+CLIENT BRIEF:
+- Group type: {group_type}
+- Industry: {industry}
+- Number of people: {pax}
+- Duration: {nights} nights
+- Special requests: {special_requests}
+
+AVAILABLE SERVICES (format: [ID] Name | Category | Price | Unit):
+{services_list}
+
+Select services that make sense for this group. Think like a professional DMC planner:
+- Always include airport transfers if available (arrival + departure)
+- For Incentive/Meeting groups: suggest teambuilding, gala dinner, city tour
+- For Leisure groups: excursions, dining, leisure activities
+- For longer stays (3+ nights): include more variety across days
+- Match the industry/budget feel: Finance/Pharma = premium choices, Tech = modern/active
+- Don't include accommodation services (those are hotels, handled separately)
+- Select 4-10 services typically
+
+Return ONLY valid JSON:
+{{
+  "service_ids": [1, 5, 12, 8],
+  "program_summary": "Day-by-day or block-by-block description of the suggested program in 3-5 sentences. Explain WHY each block was chosen for this specific group."
+}}"""
+
+
+def suggest_program(group_type: str, industry: str, pax: int, nights: int,
+                    special_requests: str, services: list) -> dict:
+    api_key = os.getenv('ANTHROPIC_API_KEY', '')
+    if not api_key or api_key == 'your-api-key-here':
+        return {"error": "ANTHROPIC_API_KEY not configured"}
+
+    services_list = '\n'.join(
+        f"[{s['id']}] {s['name']} | {s['category']} | {s['price']} USD | {s['unit']}"
+        for s in services
+    )
+
+    prompt = SUGGEST_PROMPT.format(
+        group_type=group_type or 'Incentive',
+        industry=industry or 'Not specified',
+        pax=pax or 1,
+        nights=nights or 3,
+        special_requests=special_requests or 'None',
+        services_list=services_list or 'No services available',
+    ).replace('{{', '{').replace('}}', '}')
+
+    client = anthropic.Anthropic(api_key=api_key)
+    message = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=2048,
+        system=SUGGEST_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    response_text = message.content[0].text.strip()
+    if response_text.startswith("```"):
+        lines = response_text.split("\n")
+        response_text = "\n".join(lines[1:-1])
+
+    start = response_text.find('{')
+    end = response_text.rfind('}') + 1
+    if start >= 0 and end > start:
+        try:
+            return json.loads(response_text[start:end])
+        except json.JSONDecodeError:
+            pass
+
+    return {"error": "Could not parse AI response"}
+
+
 BRIEF_SYSTEM_PROMPT = """You are an expert assistant for a UAE destination management company (DMC).
 You extract client brief information from documents or emails to prefill a proposal form.
 Return ONLY valid JSON, no explanation."""
