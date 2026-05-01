@@ -123,7 +123,8 @@ def add_hotel():
             stars=stars,
             rate_single_aed=rate_single,
             rate_twin_aed=rate_twin,
-            photo_url=photo_url
+            photo_url=photo_url,
+            website_url=request.form.get('website_url', ''),
         )
         
         db.session.add(hotel)
@@ -147,6 +148,7 @@ def edit_hotel(hotel_id):
         hotel.stars = request.form.get('stars', type=int)
         hotel.rate_single_aed = request.form.get('rate_single_aed', type=float)
         hotel.rate_twin_aed = request.form.get('rate_twin_aed', type=float)
+        hotel.website_url = request.form.get('website_url', '')
         
         # Handle photo upload
         if 'photo' in request.files:
@@ -425,6 +427,7 @@ def import_save():
             stars=int(h.get('stars', 5)),
             rate_single_aed=float(h.get('rate_single_aed', 0)),
             rate_twin_aed=float(h.get('rate_twin_aed', 0)),
+            website_url=h.get('website_url', ''),
         )
         db.session.add(hotel)
         saved['hotels'] += 1

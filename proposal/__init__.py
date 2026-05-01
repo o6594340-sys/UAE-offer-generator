@@ -53,6 +53,7 @@ def _build_budget(proposal):
             'name': h.name,
             'location': h.location,
             'stars': h.stars,
+            'website_url': h.website_url or '',
             'nights': nights,
             'rate_single_usd': h.rate_single_aed,
             'rate_twin_usd': h.rate_twin_aed,
@@ -242,6 +243,8 @@ def _generate_excel(proposal, budget):
         ws.cell(3, 4, 'Hotel Name')
         ws.cell(3, 5, h['name']).font = Font(bold=True, size=11)
         ws.cell(4, 4, 'Hotel website:')
+        if h.get('website_url'):
+            ws.cell(4, 5, h['website_url'])
         ws.cell(5, 1, f'Period: {period_str}').font = Font(bold=True)
         ws.cell(6, 1, f'Type of the group: {proposal.group_type or ""}')
         ws.cell(7, 1, f'Amount of pax: {pax}')

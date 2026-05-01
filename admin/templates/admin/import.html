@@ -357,6 +357,10 @@ function buildHotelCard(h, i) {
       </div>
     </div>
     <div class="field">
+      <label>Website URL</label>
+      <input type="text" value="${esc(h.website_url || '')}" placeholder="https://..." onchange="extractedData.hotels[${i}].website_url=this.value">
+    </div>
+    <div class="field">
       <label>Description</label>
       <textarea onchange="extractedData.hotels[${i}].description=this.value">${esc(h.description || '')}</textarea>
     </div>

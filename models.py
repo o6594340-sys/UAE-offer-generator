@@ -32,7 +32,8 @@ class Hotel(db.Model):
     name = db.Column(db.String(200), nullable=False)
     location = db.Column(db.String(200))  # Dubai, Abu Dhabi, etc.
     description = db.Column(db.Text)
-    photo_url = db.Column(db.String(500))  # File path or URL
+    photo_url = db.Column(db.String(500))
+    website_url = db.Column(db.String(500))
     stars = db.Column(db.Integer, default=5)  # 3, 4, 5 stars
     
     # Room rates in AED (base currency)

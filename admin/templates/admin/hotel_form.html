@@ -48,6 +48,13 @@
         </div>
         
         <div class="form-group">
+            <label for="website_url">Hotel Website URL</label>
+            <input type="url" id="website_url" name="website_url"
+                   value="{% if hotel %}{{ hotel.website_url or '' }}{% endif %}"
+                   placeholder="https://www.hotel-website.com">
+        </div>
+
+        <div class="form-group">
             <label for="photo">Hotel Photo</label>
             <input type="file" id="photo" name="photo" accept="image/*">
             {% if hotel and hotel.photo_url %}<small>Current: {{ hotel.photo_url }}</small>{% endif %}

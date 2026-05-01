@@ -122,10 +122,11 @@ EXCEL_EXTRACTION_PROMPT = """Extract hotels and services from the following Exce
 The spreadsheet is usually a price list for ONE specific hotel. Columns are typically:
   Service | Qty | Frequency | Price per unit | Total | Comments
 
-STEP 1 — Find the hotel name:
+STEP 1 — Find the hotel name and website:
 - Look in header rows (top of sheet) for a hotel name field like "Hotel Name:", or a prominent hotel name cell
-- The hotel name may appear as a bold section title at the start of the room rows
+- Look for "Hotel website:", "Website:", or any cell containing "http" / "www" near the hotel name
 - If no hotel name is found, use "Unknown Hotel"
+- If no website is found, use empty string ""
 
 STEP 2 — Room rates → extract as a HOTEL (not a service):
 - "Room Single" / "ROH Single Room" / "Single Room" → hotel.rate_single_aed = Price per unit
@@ -154,6 +155,7 @@ Return ONLY valid JSON:
       "location": "Dubai",
       "stars": 5,
       "description": "",
+      "website_url": "https://www.jaresortshotels.com",
       "rate_single_aed": 254,
       "rate_twin_aed": 282
     }}

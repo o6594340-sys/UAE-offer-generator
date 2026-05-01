@@ -30,9 +30,18 @@ def create_app(config_name='development'):
     # Initialize database
     db.init_app(app)
     
-    # Create tables
+    # Create tables + lightweight column migrations
     with app.app_context():
         db.create_all()
+        with db.engine.connect() as conn:
+            for sql in [
+                'ALTER TABLE hotels ADD COLUMN website_url VARCHAR(500)',
+            ]:
+                try:
+                    conn.execute(db.text(sql))
+                    conn.commit()
+                except Exception:
+                    pass
     
     # Register blueprints
     from admin import admin_bp
