@@ -7,7 +7,8 @@ from pathlib import Path
 import os
 from models import db, Hotel, Service, ServiceCategory, Currency
 from utils.pptx_extractor import extract_text_from_pptx
-from utils.ai_extractor import extract_from_pptx_text
+from utils.ai_extractor import extract_from_pptx_text, extract_services_from_excel_text
+from utils.excel_extractor import extract_text_from_excel
 
 admin_bp = Blueprint('admin', __name__, template_folder='templates')
 
@@ -337,11 +338,15 @@ def toggle_service(service_id):
 
 # ===================== PPT IMPORT =====================
 
-ALLOWED_IMPORT_EXTENSIONS = {'pptx', 'ppt'}
+ALLOWED_IMPORT_EXTENSIONS = {'pptx', 'ppt', 'xlsx', 'xls'}
 
 
 def _allowed_import(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMPORT_EXTENSIONS
+
+
+def _ext(filename):
+    return filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
 
 
 @admin_bp.route('/import')
@@ -355,28 +360,44 @@ def import_upload():
     if not files or all(f.filename == '' for f in files):
         return jsonify({'error': 'No files uploaded'}), 400
 
-    combined_text_parts = []
+    pptx_parts = []
+    excel_parts = []
     skipped = []
 
     for f in files:
         if not f or not _allowed_import(f.filename):
             skipped.append(f.filename)
             continue
+        ext = _ext(f.filename)
         try:
-            text = extract_text_from_pptx(f.read())
-            if text.strip():
-                combined_text_parts.append(f"=== {f.filename} ===\n{text}")
+            file_bytes = f.read()
+            if ext in ('pptx', 'ppt'):
+                text = extract_text_from_pptx(file_bytes)
+                if text.strip():
+                    pptx_parts.append(f"=== {f.filename} ===\n{text}")
+            elif ext in ('xlsx', 'xls'):
+                text = extract_text_from_excel(file_bytes)
+                if text.strip():
+                    excel_parts.append(f"=== {f.filename} ===\n{text}")
         except Exception as e:
             skipped.append(f"{f.filename} (error: {str(e)})")
 
-    if not combined_text_parts:
+    if not pptx_parts and not excel_parts:
         return jsonify({'error': 'Could not extract text from uploaded files'}), 400
 
-    combined_text = "\n\n".join(combined_text_parts)
-    result = extract_from_pptx_text(combined_text)
+    result = {'hotels': [], 'services': []}
 
-    if 'error' in result and not result.get('hotels') and not result.get('services'):
-        return jsonify({'error': result['error']}), 500
+    if pptx_parts:
+        pptx_result = extract_from_pptx_text("\n\n".join(pptx_parts))
+        result['hotels'].extend(pptx_result.get('hotels', []))
+        result['services'].extend(pptx_result.get('services', []))
+
+    if excel_parts:
+        excel_result = extract_services_from_excel_text("\n\n".join(excel_parts))
+        result['services'].extend(excel_result.get('services', []))
+
+    if not result['hotels'] and not result['services']:
+        return jsonify({'error': 'No content could be extracted from the files'}), 500
 
     result['skipped'] = skipped
     return jsonify(result)
@@ -389,6 +410,9 @@ def import_save():
         return jsonify({'error': 'No data'}), 400
 
     saved = {'hotels': 0, 'services': 0}
+    skipped_duplicates = 0
+
+    existing_service_names = {s.name.strip().lower() for s in Service.query.all()}
 
     for h in data.get('hotels', []):
         if not h.get('selected'):
@@ -407,6 +431,11 @@ def import_save():
     for s in data.get('services', []):
         if not s.get('selected'):
             continue
+        name = s.get('name', 'Unknown Service')
+        if name.strip().lower() in existing_service_names:
+            skipped_duplicates += 1
+            continue
+
         category_name = s.get('category', 'Additional Services')
         category = ServiceCategory.query.filter_by(name=category_name).first()
         if not category:
@@ -415,7 +444,7 @@ def import_save():
             db.session.flush()
 
         service = Service(
-            name=s.get('name', 'Unknown Service'),
+            name=name,
             description=s.get('description', ''),
             category_id=category.id,
             price_aed=float(s.get('price_aed', 0)),
@@ -423,6 +452,7 @@ def import_save():
         )
         db.session.add(service)
         saved['services'] += 1
+        existing_service_names.add(name.strip().lower())
 
     db.session.commit()
-    return jsonify({'success': True, 'saved': saved})
+    return jsonify({'success': True, 'saved': saved, 'skipped_duplicates': skipped_duplicates})

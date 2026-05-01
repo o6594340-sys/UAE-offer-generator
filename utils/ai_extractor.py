@@ -114,6 +114,71 @@ Presentation text:
 {text}"""
 
 
+EXCEL_SYSTEM_PROMPT = """You are an expert at extracting structured tourism service data from Excel price lists for a UAE destination management company.
+Return ONLY valid JSON, no explanation."""
+
+EXCEL_EXTRACTION_PROMPT = """Extract all services and prices from the following Excel spreadsheet data.
+
+Return ONLY valid JSON in this exact format:
+{{
+  "services": [
+    {{
+      "name": "Service name",
+      "category": "Activities & Excursions",
+      "description": "Description if available, else empty string",
+      "price_aed": 0,
+      "unit": "per person"
+    }}
+  ]
+}}
+
+Allowed categories: "Accommodation", "Transfers & Transport", "Activities & Excursions", "Dining & Catering", "Events & Entertainment", "Additional Services"
+Allowed units: "per person", "per room", "per event", "per day", "per group", "fixed"
+
+Rules:
+- Extract EVERY distinct service/activity/transfer that has a name
+- price_aed field stores the price value (use whatever numeric price you find in the spreadsheet)
+- If price is missing, use 0
+- If unit is not specified, guess from context or use "per person"
+- Pick the best matching category based on service type
+- Restaurants/dining → "Dining & Catering", transfers/buses → "Transfers & Transport", tours/excursions → "Activities & Excursions", galas/teambuilding → "Events & Entertainment"
+
+Spreadsheet data:
+{{text}}"""
+
+
+def extract_services_from_excel_text(text: str) -> dict:
+    api_key = os.getenv('ANTHROPIC_API_KEY', '')
+    if not api_key or api_key == 'your-api-key-here':
+        return {"error": "ANTHROPIC_API_KEY not configured", "services": []}
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    prompt = EXCEL_EXTRACTION_PROMPT.replace('{{text}}', text).replace('{{', '{').replace('}}', '}')
+
+    message = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=8096,
+        system=EXCEL_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    response_text = message.content[0].text.strip()
+    if response_text.startswith("```"):
+        lines = response_text.split("\n")
+        response_text = "\n".join(lines[1:-1])
+
+    start = response_text.find('{')
+    end = response_text.rfind('}') + 1
+    if start >= 0 and end > start:
+        try:
+            return json.loads(response_text[start:end])
+        except json.JSONDecodeError:
+            pass
+
+    return {"error": "Could not parse AI response", "services": []}
+
+
 def extract_from_pptx_text(text: str) -> dict:
     api_key = os.getenv('ANTHROPIC_API_KEY', '')
     if not api_key or api_key == 'your-api-key-here':

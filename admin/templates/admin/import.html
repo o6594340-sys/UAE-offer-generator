@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Import from PPT - INSIDERS Dubai{% endblock %}
+{% block title %}Import from PPT / Excel - INSIDERS Dubai{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -137,17 +137,18 @@
 
 {% block content %}
 <div class="card">
-  <h2>Import from PowerPoint</h2>
+  <h2>Import from PowerPoint or Excel</h2>
   <p style="color:#666; margin-bottom:20px;">
-    Upload one or more PPTX files. Claude AI will automatically extract hotels, restaurants,
-    activities, and other services. You can review and edit everything before saving.
+    Upload one or more <strong>PPTX</strong> or <strong>Excel (.xlsx)</strong> files.
+    Claude AI will automatically extract hotels, restaurants, activities, and services.
+    You can review and edit everything before saving. Duplicate services (same name) will be skipped automatically.
   </p>
 
   <div class="dropzone" id="dropzone">
     <div class="icon">📂</div>
-    <strong>Drag & drop PPTX files here</strong>
-    <p>or click to select files</p>
-    <input type="file" id="file-input" multiple accept=".pptx,.ppt" style="display:none">
+    <strong>Drag & drop PPTX or Excel files here</strong>
+    <p>or click to select files (.pptx, .ppt, .xlsx, .xls)</p>
+    <input type="file" id="file-input" multiple accept=".pptx,.ppt,.xlsx,.xls" style="display:none">
   </div>
   <div class="file-list" id="file-list"></div>
 
@@ -160,7 +161,7 @@
 
 <div id="spinner">
   <div class="spinner-ring"></div>
-  <p style="color:#555; font-size:15px;">Claude is reading the presentations...<br>
+  <p style="color:#555; font-size:15px;">Claude is analyzing the files...<br>
   <small style="color:#999;">This may take 20–40 seconds for large files</small></p>
 </div>
 
@@ -231,7 +232,7 @@ fileInput.addEventListener('change', () => addFiles([...fileInput.files]));
 
 function addFiles(files) {
   files.forEach(f => {
-    if (f.name.match(/\.pptx?$/i) && !selectedFiles.find(x => x.name === f.name)) {
+    if (f.name.match(/\.(pptx?|xlsx?)$/i) && !selectedFiles.find(x => x.name === f.name)) {
       selectedFiles.push(f);
     }
   });
@@ -348,11 +349,11 @@ function buildHotelCard(h, i) {
     </div>
     <div class="field-row">
       <div class="field">
-        <label>Single room (AED/night)</label>
+        <label>Single room (USD/night)</label>
         <input type="number" min="0" value="${h.rate_single_aed || 0}" onchange="extractedData.hotels[${i}].rate_single_aed=parseFloat(this.value)||0">
       </div>
       <div class="field">
-        <label>Twin room (AED/night)</label>
+        <label>Twin room (USD/night)</label>
         <input type="number" min="0" value="${h.rate_twin_aed || 0}" onchange="extractedData.hotels[${i}].rate_twin_aed=parseFloat(this.value)||0">
       </div>
     </div>`;
@@ -386,7 +387,7 @@ function buildServiceCard(s, i) {
     </div>
     <div class="field-row">
       <div class="field">
-        <label>Price (AED)</label>
+        <label>Price (USD)</label>
         <input type="number" min="0" value="${s.price_aed || 0}" onchange="extractedData.services[${i}].price_aed=parseFloat(this.value)||0">
       </div>
       <div class="field">
@@ -454,7 +455,8 @@ async function saveSelected() {
 
     if (data.success) {
       const msg = document.getElementById('success-msg');
-      msg.innerHTML = `✅ Saved successfully: <strong>${data.saved.hotels} hotels</strong> and <strong>${data.saved.services} services</strong>.
+      const dupNote = data.skipped_duplicates ? `<br><small style="color:#888">${data.skipped_duplicates} duplicate(s) skipped (already exist in database)</small>` : '';
+      msg.innerHTML = `✅ Saved: <strong>${data.saved.hotels} hotels</strong> and <strong>${data.saved.services} services</strong>.${dupNote}
         <br><a href="/admin/hotels" class="btn" style="margin:10px 5px 0">View Hotels</a>
         <a href="/admin/services" class="btn" style="margin:10px 5px 0">View Services</a>`;
       msg.style.display = 'block';
