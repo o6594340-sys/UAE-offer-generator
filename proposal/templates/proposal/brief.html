@@ -134,6 +134,70 @@
   .suggest-panel .suggest-meta {
     margin-top: 12px; font-size: 12px; color: #7c3aed; font-weight: 600;
   }
+
+  /* Itinerary editor */
+  .itin-editor { display: none; margin-top: 24px; }
+  .itin-editor h3 {
+    font-size: 16px; font-weight: 700; color: #5b21b6;
+    margin-bottom: 16px; display: flex; align-items: center; gap: 10px;
+  }
+  .day-block {
+    background: white; border: 2px solid #e0e0e0;
+    border-radius: 10px; margin-bottom: 14px; overflow: hidden;
+  }
+  .day-header {
+    background: #f8f4ff; border-bottom: 1px solid #e0e0e0;
+    padding: 10px 16px; display: flex; align-items: center; gap: 10px;
+  }
+  .day-num {
+    background: #7c3aed; color: white; border-radius: 50%;
+    width: 28px; height: 28px; display: flex; align-items: center;
+    justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0;
+  }
+  .day-label-input {
+    font-weight: 600; font-size: 14px; border: none; background: transparent;
+    flex: 1; color: #374151; outline: none;
+  }
+  .day-label-input:focus { border-bottom: 1px solid #7c3aed; }
+  .day-add-btn {
+    font-size: 12px; padding: 4px 10px; background: #ede9fe; color: #7c3aed;
+    border: 1px solid #c4b5fd; border-radius: 6px; cursor: pointer;
+  }
+  .day-remove-btn {
+    background: none; border: none; color: #ccc; cursor: pointer; font-size: 16px;
+    padding: 0 4px;
+  }
+  .day-remove-btn:hover { color: #ea4335; }
+
+  .itin-items { padding: 8px 0; }
+  .itin-row {
+    display: grid; grid-template-columns: 80px 1fr 1fr auto;
+    gap: 8px; padding: 6px 16px; align-items: center;
+    border-bottom: 1px solid #f5f5f5;
+  }
+  .itin-row:last-child { border-bottom: none; }
+  .itin-row input, .itin-row select {
+    padding: 5px 8px; font-size: 13px; border: 1px solid #e0e0e0;
+    border-radius: 6px; width: 100%;
+  }
+  .itin-row .remove-item {
+    background: none; border: none; color: #ccc; cursor: pointer;
+    font-size: 16px; padding: 0;
+  }
+  .itin-row .remove-item:hover { color: #ea4335; }
+
+  .itin-add-day {
+    border: 2px dashed #c4b5fd; border-radius: 10px; padding: 12px;
+    text-align: center; cursor: pointer; color: #7c3aed; font-size: 14px;
+    background: transparent; width: 100%; margin-bottom: 14px;
+  }
+  .itin-add-day:hover { background: #f5f3ff; }
+
+  .itin-col-header {
+    display: grid; grid-template-columns: 80px 1fr 1fr auto;
+    gap: 8px; padding: 4px 16px;
+    font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase;
+  }
 </style>
 {% endblock %}
 
@@ -269,6 +333,17 @@
           <p id="suggest-text"></p>
           <div class="suggest-meta" id="suggest-meta"></div>
         </div>
+
+        <!-- Itinerary editor -->
+        <div class="itin-editor" id="itin-editor">
+          <h3>📋 Program / Itinerary <span style="font-weight:400; font-size:13px; color:#888;">(edit as needed)</span></h3>
+          <div class="itin-col-header">
+            <span>Timing</span><span>Service</span><span>Notes</span><span></span>
+          </div>
+          <div id="itin-days"></div>
+          <button type="button" class="itin-add-day" onclick="addDay()">+ Add Day</button>
+        </div>
+        <input type="hidden" name="itinerary_json" id="itinerary_json_field">
 
         <!-- Services -->
         <div class="form-section">
@@ -417,6 +492,13 @@ document.querySelectorAll('.select-item input').forEach(cb => {
   });
 });
 
+// --- All services catalog (for dropdowns in itinerary editor) ---
+const ALL_SERVICES = [
+  {% for s in services %}
+  { id: {{ s.id }}, name: {{ s.name|tojson }}, category: {{ (s.category.name if s.category else '')|tojson }} },
+  {% endfor %}
+];
+
 // --- Suggest Program ---
 async function suggestProgram() {
   const btn = document.getElementById('suggest-btn');
@@ -435,7 +517,7 @@ async function suggestProgram() {
     group_type: document.getElementById('f-group-type').value,
     industry: document.getElementById('f-industry').value,
     pax: parseInt(document.getElementById('f-pax').value) || 1,
-    nights: nights,
+    nights,
     special_requests: document.getElementById('f-special').value,
   };
 
@@ -456,31 +538,27 @@ async function suggestProgram() {
       return;
     }
 
-    // Uncheck all services first
+    // Auto-check services from itinerary
     document.querySelectorAll('.select-item input[name="service_ids"]').forEach(cb => {
       cb.checked = false;
       cb.closest('.select-item').classList.remove('checked');
     });
-
-    // Check suggested services
-    const ids = data.service_ids || [];
-    let matched = 0;
-    ids.forEach(id => {
+    (data.service_ids || []).forEach(id => {
       const cb = document.querySelector(`.select-item input[value="${id}"]`);
-      if (cb) {
-        cb.checked = true;
-        cb.closest('.select-item').classList.add('checked');
-        matched++;
-      }
+      if (cb) { cb.checked = true; cb.closest('.select-item').classList.add('checked'); }
     });
 
-    // Show explanation panel
+    // Show summary panel
     const panel = document.getElementById('suggest-panel');
     document.getElementById('suggest-text').textContent = data.program_summary || '';
     document.getElementById('suggest-meta').textContent =
-      `${matched} service${matched !== 1 ? 's' : ''} selected · ${nights} night${nights !== 1 ? 's' : ''} · ${payload.pax} pax · ${payload.group_type}`;
+      `${(data.service_ids||[]).length} services · ${nights} nights · ${payload.pax} pax · ${payload.group_type}`;
     panel.style.display = 'block';
-    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Build editable itinerary
+    renderItinerary(data.itinerary || []);
+    document.getElementById('itin-editor').style.display = 'block';
+    document.getElementById('suggest-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   } catch (err) {
     alert('Network error: ' + err.message);
@@ -489,6 +567,100 @@ async function suggestProgram() {
     spin.style.display = 'none';
     btnText.textContent = '✨ Suggest Program with AI';
   }
+}
+
+// --- Itinerary editor ---
+let itineraryData = [];  // [{day, label, items:[{service_id, timing, note}]}]
+
+function renderItinerary(days) {
+  itineraryData = JSON.parse(JSON.stringify(days));
+  redrawDays();
+}
+
+function redrawDays() {
+  const container = document.getElementById('itin-days');
+  container.innerHTML = '';
+  itineraryData.forEach((day, di) => {
+    container.appendChild(buildDayBlock(day, di));
+  });
+  syncHiddenField();
+}
+
+function buildDayBlock(day, di) {
+  const block = document.createElement('div');
+  block.className = 'day-block';
+  block.innerHTML = `
+    <div class="day-header">
+      <div class="day-num">${day.day}</div>
+      <input class="day-label-input" value="${esc(day.label || '')}"
+        onchange="itineraryData[${di}].label=this.value; syncHiddenField();"
+        placeholder="Day label (e.g. Arrival Day)">
+      <button type="button" class="day-add-btn" onclick="addItem(${di})">+ Add service</button>
+      <button type="button" class="day-remove-btn" onclick="removeDay(${di})" title="Remove day">✕</button>
+    </div>
+    <div class="itin-items" id="day-items-${di}">
+      ${(day.items || []).map((item, ii) => buildItemRow(di, ii, item)).join('')}
+    </div>`;
+  return block;
+}
+
+function buildItemRow(di, ii, item) {
+  const opts = ALL_SERVICES.map(s =>
+    `<option value="${s.id}" ${s.id == item.service_id ? 'selected' : ''}>${esc(s.name)}</option>`
+  ).join('');
+  return `<div class="itin-row" id="row-${di}-${ii}">
+    <input type="time" value="${esc(item.timing||'')}"
+      onchange="itineraryData[${di}].items[${ii}].timing=this.value; syncHiddenField();">
+    <select onchange="itineraryData[${di}].items[${ii}].service_id=parseInt(this.value); syncHiddenField(); syncCheckboxes();">
+      <option value="">— select service —</option>${opts}
+    </select>
+    <input type="text" value="${esc(item.note||'')}" placeholder="Note..."
+      onchange="itineraryData[${di}].items[${ii}].note=this.value; syncHiddenField();">
+    <button type="button" class="remove-item" onclick="removeItem(${di},${ii})">✕</button>
+  </div>`;
+}
+
+function addItem(di) {
+  itineraryData[di].items.push({ service_id: '', timing: '', note: '' });
+  redrawDays();
+}
+
+function removeItem(di, ii) {
+  itineraryData[di].items.splice(ii, 1);
+  redrawDays();
+  syncCheckboxes();
+}
+
+function removeDay(di) {
+  itineraryData.splice(di, 1);
+  // Renumber days
+  itineraryData.forEach((d, i) => d.day = i + 1);
+  redrawDays();
+  syncCheckboxes();
+}
+
+function addDay() {
+  itineraryData.push({ day: itineraryData.length + 1, label: '', items: [] });
+  redrawDays();
+}
+
+function syncCheckboxes() {
+  const ids = new Set(
+    itineraryData.flatMap(d => d.items.map(i => parseInt(i.service_id)).filter(Boolean))
+  );
+  document.querySelectorAll('.select-item input[name="service_ids"]').forEach(cb => {
+    const checked = ids.has(parseInt(cb.value));
+    cb.checked = checked;
+    cb.closest('.select-item').classList.toggle('checked', checked);
+  });
+}
+
+function syncHiddenField() {
+  document.getElementById('itinerary_json_field').value = JSON.stringify(itineraryData);
+}
+
+function esc(s) {
+  return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 </script>
 {% endblock %}

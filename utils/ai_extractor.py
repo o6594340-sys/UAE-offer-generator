@@ -36,9 +36,33 @@ Default logic (apply only where special requests don't specify):
 
 Return ONLY valid JSON:
 {{
-  "service_ids": [1, 5, 12, 8],
-  "program_summary": "Day-by-day or block-by-block description of the suggested program in 3-5 sentences. Explain WHY each block was chosen for this specific group."
-}}"""
+  "program_summary": "2-3 sentences explaining the overall concept and why it suits this group.",
+  "itinerary": [
+    {{
+      "day": 1,
+      "label": "Arrival Day",
+      "items": [
+        {{"service_id": 1, "timing": "14:00", "note": "Airport pickup, coach to hotel"}},
+        {{"service_id": 8, "timing": "19:00", "note": "Welcome dinner"}}
+      ]
+    }},
+    {{
+      "day": 2,
+      "label": "City Exploration",
+      "items": [
+        {{"service_id": 5, "timing": "09:00", "note": ""}},
+        {{"service_id": 12, "timing": "20:00", "note": "Gala dinner"}}
+      ]
+    }}
+  ]
+}}
+
+Rules for itinerary:
+- Create one entry per day (day 1 = arrival, last day = departure)
+- Each item must reference a valid service_id from the catalog above
+- timing is HH:MM format or empty string
+- note is a short optional comment (1 sentence max)
+- Respect special requests for specific days first, then fill rest logically"""
 
 
 def suggest_program(group_type: str, industry: str, pax: int, nights: int,

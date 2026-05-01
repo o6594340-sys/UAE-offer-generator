@@ -166,6 +166,22 @@ def brief_suggest():
     if 'error' in result:
         return jsonify({'error': result['error']}), 500
 
+    # Enrich itinerary items with service names for the editor
+    svc_map = {s['id']: s for s in services_list}
+    for day in result.get('itinerary', []):
+        for item in day.get('items', []):
+            sid = item.get('service_id')
+            item['service_name'] = svc_map.get(sid, {}).get('name', 'Unknown')
+            item['category'] = svc_map.get(sid, {}).get('category', '')
+
+    # Collect all unique service_ids from itinerary
+    result['service_ids'] = list({
+        item['service_id']
+        for day in result.get('itinerary', [])
+        for item in day.get('items', [])
+        if item.get('service_id')
+    })
+
     return jsonify(result)
 
 
@@ -181,6 +197,7 @@ def brief_submit():
 
     hotel_ids = ','.join(request.form.getlist('hotel_ids'))
     service_ids = ','.join(request.form.getlist('service_ids'))
+    itinerary_raw = request.form.get('itinerary_json', '')
 
     proposal = Proposal(
         id=str(uuid.uuid4()),
@@ -194,6 +211,7 @@ def brief_submit():
         hotels_selected=hotel_ids,
         services_selected=service_ids,
         special_requests=request.form.get('special_requests', ''),
+        itinerary_json=itinerary_raw if itinerary_raw else None,
         status='draft',
     )
     db.session.add(proposal)

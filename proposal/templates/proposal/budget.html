@@ -206,9 +206,42 @@
   </div>
 </div>
 
+{% if proposal.itinerary_json %}
+{% set itin = proposal.itinerary_json | fromjson %}
+{% if itin %}
+<div class="section-card" style="margin-top:20px">
+  <div class="section-head" style="background:#f5f3ff; color:#5b21b6;">📋 Program / Itinerary</div>
+  <div style="padding:16px 20px">
+    {% for day in itin %}
+    <div style="margin-bottom:16px;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+        <div style="background:#7c3aed; color:white; border-radius:50%; width:28px; height:28px;
+                    display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; flex-shrink:0;">
+          {{ day.day }}
+        </div>
+        <strong style="color:#374151;">{{ day.label or ('Day ' ~ day.day) }}</strong>
+      </div>
+      {% for item in day.items %}
+      {% if item.service_id %}
+      <div style="display:grid; grid-template-columns:70px 1fr auto; gap:8px; padding:6px 12px;
+                  background:#faf9ff; border-radius:6px; margin-bottom:4px; font-size:13px;">
+        <span style="color:#7c3aed; font-weight:600;">{{ item.timing or '—' }}</span>
+        <span>{{ item.service_name or ('Service #' ~ item.service_id) }}
+          {% if item.note %}<span style="color:#888; margin-left:6px;">· {{ item.note }}</span>{% endif %}
+        </span>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
 {% if proposal.special_requests %}
 <div class="section-card" style="margin-top:20px">
-  <div class="section-head green">📋 Special Requests / Notes</div>
+  <div class="section-head green">📝 Special Requests / Notes</div>
   <div style="padding:16px 20px">
     <div class="special-box">{{ proposal.special_requests }}</div>
   </div>

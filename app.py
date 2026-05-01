@@ -36,6 +36,7 @@ def create_app(config_name='development'):
         with db.engine.connect() as conn:
             for sql in [
                 'ALTER TABLE hotels ADD COLUMN website_url VARCHAR(500)',
+                'ALTER TABLE proposals ADD COLUMN itinerary_json TEXT',
             ]:
                 try:
                     conn.execute(db.text(sql))
@@ -43,6 +44,9 @@ def create_app(config_name='development'):
                 except Exception:
                     pass
     
+    import json as _json
+    app.jinja_env.filters['fromjson'] = lambda s: _json.loads(s) if s else []
+
     # Register blueprints
     from admin import admin_bp
     from proposal import proposal_bp

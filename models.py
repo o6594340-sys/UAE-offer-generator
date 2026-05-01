@@ -139,7 +139,8 @@ class Proposal(db.Model):
     services_selected = db.Column(db.String(1000))  # Comma-separated service IDs
     
     special_requests = db.Column(db.Text)
-    
+    itinerary_json = db.Column(db.Text)  # JSON array of day blocks
+
     # Status
     status = db.Column(db.String(50), default='draft')  # draft, finalized, exported
     
