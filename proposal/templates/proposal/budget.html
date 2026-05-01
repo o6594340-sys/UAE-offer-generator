@@ -226,12 +226,12 @@
         </div>
         <strong style="color:#374151;">{{ day.label or ('Day ' ~ day.day) }}</strong>
       </div>
-      {% for item in day.items %}
+      {% for item in day['items'] %}
       <div style="display:grid; grid-template-columns:70px 1fr; gap:8px; padding:6px 12px;
                   background:#faf9ff; border-radius:6px; margin-bottom:4px; font-size:13px;">
-        <span style="color:#7c3aed; font-weight:600;">{{ item.timing or '—' }}</span>
-        <span>{{ item.service_name or item.get('name', '') or ('Service #' ~ item.service_id) }}
-          {% if item.note %}<span style="color:#888; margin-left:6px;">· {{ item.note }}</span>{% endif %}
+        <span style="color:#7c3aed; font-weight:600;">{{ item.get('timing') or '—' }}</span>
+        <span>{{ item.get('service_name') or item.get('name') or ('Service #' ~ item.get('service_id', '')) }}
+          {% if item.get('note') %}<span style="color:#888; margin-left:6px;">· {{ item['note'] }}</span>{% endif %}
         </span>
       </div>
       {% endfor %}
