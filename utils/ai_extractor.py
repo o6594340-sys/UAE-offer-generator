@@ -19,14 +19,20 @@ CLIENT BRIEF:
 AVAILABLE SERVICES (format: [ID] Name | Category | Price | Unit):
 {services_list}
 
-Select services that make sense for this group. Think like a professional DMC planner:
+IMPORTANT — Special requests are the HIGHEST PRIORITY:
+- If special requests mention a specific service ("add yacht", "desert safari on day 2", "gala dinner on last evening") — that service MUST be included if available in the catalog
+- If special requests mention timing ("day 1 — transfer, day 2 — city tour") — follow that structure exactly
+- If special requests say "no X" or "without X" — exclude that type of service
+- Only after satisfying all special requests, fill remaining days with sensible defaults
+
+Default logic (apply only where special requests don't specify):
 - Always include airport transfers if available (arrival + departure)
-- For Incentive/Meeting groups: suggest teambuilding, gala dinner, city tour
+- For Incentive/Meeting groups: teambuilding, gala dinner, city tour
 - For Leisure groups: excursions, dining, leisure activities
 - For longer stays (3+ nights): include more variety across days
-- Match the industry/budget feel: Finance/Pharma = premium choices, Tech = modern/active
-- Don't include accommodation services (those are hotels, handled separately)
-- Select 4-10 services typically
+- Match the industry feel: Finance/Pharma = premium, Tech = active/modern
+- Don't include Accommodation category (hotels are selected separately)
+- Select 4-10 services total
 
 Return ONLY valid JSON:
 {{
