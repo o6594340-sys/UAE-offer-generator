@@ -125,7 +125,7 @@
         <td>{{ h.location }}</td>
         <td class="stars">{{ '★' * h.stars }}</td>
         <td class="num">{{ h.nights }}</td>
-        <td class="num">{{ '%.2f'|format(h.rate_single_aed / (budget.hotels_total_single / h.total_single if h.total_single else 1) / h.nights) }}</td>
+        <td class="num">{{ '%.2f'|format(h.rate_single_usd) }}</td>
         <td class="num">{{ '%.2f'|format(h.total_single / h.nights) if h.nights else '—' }}</td>
         <td class="num"><strong>{{ '%.2f'|format(h.total_single) }} {{ budget.currency }}</strong></td>
         <td class="num"><strong>{{ '%.2f'|format(h.total_twin) }} {{ budget.currency }}</strong></td>
