@@ -187,193 +187,191 @@ def export_excel(proposal_id):
 
 # ── Excel generation ──────────────────────────────────────────────────────────
 
+PINK = 'FF33CC'       # table header fill (matches original)
+YELLOW = 'FFFF00'     # optional rows
+
 def _generate_excel(proposal, budget):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
 
     wb = Workbook()
+    wb.remove(wb.active)          # remove default sheet; we add per hotel below
+
     cur = budget['currency']
+    aed_r, tgt_r = _get_aed_target(proposal.currency_code)
+    pax = proposal.pax
+    nights = budget['nights']
 
-    # ── Sheet 1: Summary ──
-    ws = wb.active
-    ws.title = 'Summary'
-
-    BLUE = '1a73e8'
-    LIGHT_BLUE = 'e8f0fe'
-    GOLD = 'f9ab00'
-    LIGHT_GOLD = 'fef9e7'
-    GRAY = 'f5f5f5'
-
-    def hdr_fill(color):
+    def px(color):
         return PatternFill('solid', fgColor=color)
 
-    def bold(size=11):
-        return Font(bold=True, size=size)
-
-    def border():
-        s = Side(style='thin', color='cccccc')
+    def thin_border():
+        s = Side(style='thin', color='CCCCCC')
         return Border(left=s, right=s, top=s, bottom=s)
 
-    def money(val):
-        return round(val, 2)
+    def _price(aed_val):
+        return round(_aed_to(aed_val, aed_r, tgt_r), 2)
 
-    # Title
-    ws.merge_cells('A1:G1')
-    ws['A1'] = f'INSIDERS Dubai — Commercial Proposal'
-    ws['A1'].font = Font(bold=True, size=16, color='FFFFFF')
-    ws['A1'].fill = hdr_fill(BLUE)
-    ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
-    ws.row_dimensions[1].height = 36
+    period_str = ''
+    if proposal.arrival_date and proposal.departure_date:
+        period_str = (f"{proposal.arrival_date.strftime('%d.%m.%Y')} to "
+                      f"{proposal.departure_date.strftime('%d.%m.%Y')}")
 
-    # Client info
-    info = [
-        ('Client', proposal.company_name),
-        ('Group Type', proposal.group_type or '—'),
-        ('Industry', proposal.industry or '—'),
-        ('Pax', str(proposal.pax)),
-        ('Arrival', proposal.arrival_date.strftime('%d %b %Y') if proposal.arrival_date else '—'),
-        ('Departure', proposal.departure_date.strftime('%d %b %Y') if proposal.departure_date else '—'),
-        ('Nights', str(budget['nights'])),
-        ('Currency', cur),
+    contact = 'Contact INSIDERS Tourism: Ahmed Shelleh, ahmed@Insiders-uae.com, Mob: +971 50 3434428 ; Tel : +971 445 39 822'
+    currency_name = {'USD': 'US Dollars', 'EUR': 'Euro', 'AED': 'UAE Dirhams', 'GBP': 'British Pounds'}.get(cur, cur)
+
+    notes = [
+        '1. Rates include all local taxes and are subject to change until final confirmation.',
+        '2. Nothing of the above is booked or blocked until deposit is received.',
+        '3. Positions marked as "Option" are not included in the grand total.',
+        '4. In case of changes in the number of participants, rates may be revised.',
     ]
-    for i, (label, val) in enumerate(info, 3):
-        ws.cell(i, 1, label).font = bold()
-        ws.cell(i, 1).fill = hdr_fill(GRAY)
-        ws.merge_cells(f'B{i}:G{i}')
-        ws.cell(i, 2, val)
-
-    row = 3 + len(info) + 1
-
-    # Hotels section
-    ws.cell(row, 1, 'HOTELS').font = Font(bold=True, size=13, color='FFFFFF')
-    ws.cell(row, 1).fill = hdr_fill(BLUE)
-    ws.merge_cells(f'A{row}:G{row}')
-    row += 1
-
-    heads = ['Hotel', 'Location', 'Stars', 'Nights', f'Single/night ({cur})', f'Twin/night ({cur})',
-             f'Total Single ({cur})', f'Total Twin ({cur})']
-    for col, h in enumerate(heads, 1):
-        c = ws.cell(row, col, h)
-        c.font = bold()
-        c.fill = hdr_fill(LIGHT_BLUE)
-        c.border = border()
-    row += 1
-
-    for h in budget['hotels']:
-        vals = [h['name'], h['location'], f"{h['stars']}★", h['nights'],
-                money(_aed_to(h['rate_single_aed'], *_get_aed_target(proposal.currency_code))),
-                money(_aed_to(h['rate_twin_aed'], *_get_aed_target(proposal.currency_code))),
-                money(h['total_single']), money(h['total_twin'])]
-        for col, v in enumerate(vals, 1):
-            c = ws.cell(row, col, v)
-            c.border = border()
-        row += 1
-
-    if not budget['hotels']:
-        ws.cell(row, 1, 'No hotels selected').font = Font(italic=True, color='999999')
-        row += 1
-
-    row += 1
-
-    # Services section
-    ws.cell(row, 1, 'SERVICES & ACTIVITIES').font = Font(bold=True, size=13, color='FFFFFF')
-    ws.cell(row, 1).fill = hdr_fill(GOLD)
-    ws.merge_cells(f'A{row}:G{row}')
-    row += 1
-
-    sheads = ['Service', 'Category', 'Unit', 'Qty', f'Price/unit ({cur})', f'Total ({cur})']
-    for col, h in enumerate(sheads, 1):
-        c = ws.cell(row, col, h)
-        c.font = bold()
-        c.fill = hdr_fill(LIGHT_GOLD)
-        c.border = border()
-    row += 1
-
-    aed_r, tgt_r = _get_aed_target(proposal.currency_code)
-    for s in budget['services']:
-        vals = [s['name'], s['category'], s['unit'], s['qty'],
-                money(_aed_to(s['price_aed'], aed_r, tgt_r)), money(s['total'])]
-        for col, v in enumerate(vals, 1):
-            c = ws.cell(row, col, v)
-            c.border = border()
-        row += 1
-
-    if not budget['services']:
-        ws.cell(row, 1, 'No services selected').font = Font(italic=True, color='999999')
-        row += 1
-
-    row += 1
-
-    # Totals
-    totals = [
-        ('Services Total', budget['services_total']),
-        ('Hotels Total (single rooms)', budget['hotels_total_single']),
-        ('Hotels Total (twin rooms)', budget['hotels_total_twin']),
-        ('GRAND TOTAL (single)', budget['grand_total_single']),
-        ('GRAND TOTAL (twin)', budget['grand_total_twin']),
-    ]
-    for label, val in totals:
-        is_grand = 'GRAND' in label
-        ws.cell(row, 4, label).font = Font(bold=is_grand, size=12 if is_grand else 11)
-        ws.merge_cells(f'D{row}:F{row}')
-        c = ws.cell(row, 7, money(val))
-        c.font = Font(bold=is_grand, size=12 if is_grand else 11,
-                      color='FFFFFF' if is_grand else '000000')
-        if is_grand:
-            ws.cell(row, 4).fill = hdr_fill(BLUE)
-            c.fill = hdr_fill(BLUE)
-        c.border = border()
-        row += 1
-
-    # Special requests
-    if proposal.special_requests:
-        row += 1
-        ws.cell(row, 1, 'Special Requests / Notes').font = bold()
-        row += 1
-        ws.merge_cells(f'A{row}:G{row}')
-        ws.cell(row, 1, proposal.special_requests)
-        ws.cell(row, 1).alignment = Alignment(wrap_text=True)
-        ws.row_dimensions[row].height = 60
-
-    # Column widths
-    col_widths = [30, 18, 8, 8, 18, 18, 18, 18]
-    for i, w in enumerate(col_widths, 1):
-        ws.column_dimensions[get_column_letter(i)].width = w
 
     # ── One sheet per hotel ──
-    for h in budget['hotels']:
-        ws2 = wb.create_sheet(title=h['name'][:30])
-        ws2['A1'] = h['name']
-        ws2['A1'].font = Font(bold=True, size=14)
-        ws2.merge_cells('A1:F1')
+    hotels = budget['hotels']
+    services = budget['services']
 
-        ws2['A2'] = f"{h['location']} · {h['stars']}★ · {h['nights']} nights"
-        ws2['A2'].font = Font(italic=True, color='666666')
-        ws2.merge_cells('A2:F2')
+    if not hotels:
+        # If no hotels selected, create one sheet with all services
+        hotels = [{'name': 'Proposal', 'location': '', 'stars': 0,
+                   'nights': nights, 'rate_single_aed': 0, 'rate_twin_aed': 0,
+                   'total_single': 0, 'total_twin': 0}]
 
-        r = 4
-        for label, val in [
-            (f'Single room/night ({cur})', money(_aed_to(h['rate_single_aed'], aed_r, tgt_r))),
-            (f'Twin room/night ({cur})', money(_aed_to(h['rate_twin_aed'], aed_r, tgt_r))),
-            (f'Total single × {h["nights"]} nights', money(h['total_single'])),
-            (f'Total twin × {h["nights"]} nights', money(h['total_twin'])),
-        ]:
-            ws2.cell(r, 1, label).font = bold()
-            ws2.cell(r, 1).fill = hdr_fill(LIGHT_BLUE)
-            ws2.cell(r, 3, val).font = Font(bold='Total' in label)
-            r += 1
+    for h in hotels:
+        ws = wb.create_sheet(title=(h['name'][:28] + '  '))
 
-        r += 1
-        ws2.cell(r, 1, 'Services included in this proposal:').font = bold()
-        r += 1
-        for s in budget['services']:
-            ws2.cell(r, 1, f'• {s["name"]}')
-            ws2.cell(r, 3, money(s['total']))
-            r += 1
+        # Column widths (match original)
+        for col, w in zip('ABCDEFGH', [24.44, 38.44, 7.44, 12.0, 28.66, 17.11, 52.44, 9.11]):
+            ws.column_dimensions[col].width = w
 
-        ws2.column_dimensions['A'].width = 35
-        ws2.column_dimensions['C'].width = 18
+        # ── Header block ──
+        ws.cell(3, 4, 'Hotel Name')
+        ws.cell(3, 5, h['name']).font = Font(bold=True, size=11)
+        ws.cell(4, 4, 'Hotel website:')
+        ws.cell(5, 1, f'Period: {period_str}').font = Font(bold=True)
+        ws.cell(6, 1, f'Type of the group: {proposal.group_type or ""}')
+        ws.cell(7, 1, f'Amount of pax: {pax}')
+        ws.cell(8, 1, f'Destination: UAE - {h["location"] or "Dubai"}')
+        ws.cell(9, 1, contact).font = Font(bold=True)
+        ws.cell(10, 1, f'Currency - {currency_name}').font = Font(bold=True)
+
+        # ── Table header (row 11) ──
+        headers = ['Timing', 'Service', 'Unit, No', 'Frequency of units',
+                   f'Price per unit, {cur}', f'Total, {cur}', 'Comments']
+        aligns = ['center', 'left', 'center', 'center', 'center', 'center', 'center']
+        for col, (hdr, aln) in enumerate(zip(headers, aligns), 1):
+            c = ws.cell(11, col, hdr)
+            c.font = Font(bold=True, size=11)
+            c.fill = px(PINK)
+            c.alignment = Alignment(horizontal=aln, vertical='center', wrap_text=True)
+            c.border = thin_border()
+        ws.row_dimensions[11].height = 29.4
+
+        row = 12
+
+        # ── Hotel rooms section ──
+        ws.cell(row, 1, h['name']).font = Font(bold=True)
+        row += 1
+
+        single_price = _price(h['rate_single_aed'])
+        twin_price = _price(h['rate_twin_aed'])
+
+        # Twin row
+        twin_row = row
+        ws.cell(row, 2, 'Room Double/Twin').font = Font(bold=True)
+        ws.cell(row, 2).alignment = Alignment(horizontal='left', wrap_text=True)
+        ws.cell(row, 3, 0).alignment = Alignment(horizontal='center')
+        ws.cell(row, 4, nights).alignment = Alignment(horizontal='center')
+        ws.cell(row, 5, twin_price).alignment = Alignment(horizontal='center')
+        ws.cell(row, 6, f'=C{row}*D{row}*E{row}').alignment = Alignment(horizontal='center')
+        ws.row_dimensions[row].height = 28.8
+        row += 1
+
+        # Single row
+        single_row = row
+        ws.cell(row, 2, 'Room Single').font = Font(bold=True)
+        ws.cell(row, 2).alignment = Alignment(horizontal='left', wrap_text=True)
+        ws.cell(row, 3, pax).alignment = Alignment(horizontal='center')
+        ws.cell(row, 4, nights).alignment = Alignment(horizontal='center')
+        ws.cell(row, 5, single_price).alignment = Alignment(horizontal='center')
+        ws.cell(row, 6, f'=C{row}*D{row}*E{row}').alignment = Alignment(horizontal='center')
+        ws.row_dimensions[row].height = 28.8
+        row += 1
+
+        # Hotel subtotal row
+        hotel_total_row = row
+        if proposal.arrival_date:
+            ws.cell(row, 1, proposal.arrival_date.strftime('%d.%m.%Y')).font = Font(bold=True)
+        ws.cell(row, 6, f'=SUM(F{twin_row}:F{single_row})').font = Font(bold=True)
+        row += 1
+
+        # ── Services section ──
+        svc_rows = []
+        for s in services:
+            unit = s['unit']
+            if unit == 'per person':
+                qty = pax
+                freq = 1
+            elif unit == 'per day':
+                qty = 1
+                freq = nights
+            elif unit == 'per room':
+                qty = math.ceil(pax / 2)
+                freq = 1
+            else:
+                qty = 1
+                freq = 1
+
+            svc_row = row
+            svc_rows.append(svc_row)
+            ws.cell(row, 2, s['name'])
+            ws.cell(row, 2).alignment = Alignment(horizontal='left', wrap_text=True)
+            ws.cell(row, 3, qty).alignment = Alignment(horizontal='center')
+            ws.cell(row, 4, freq).alignment = Alignment(horizontal='center')
+            ws.cell(row, 5, _price(s['price_aed'])).alignment = Alignment(horizontal='center')
+            ws.cell(row, 6, f'=C{row}*D{row}*E{row}').alignment = Alignment(horizontal='center')
+            ws.cell(row, 7, s['category'])
+            ws.row_dimensions[row].height = 28.8
+            row += 1
+
+        # Services subtotal
+        svc_total_row = row
+        if svc_rows:
+            ws.cell(row, 6, f'=SUM(F{svc_rows[0]}:F{svc_rows[-1]})').font = Font(bold=True)
+        row += 1
+
+        # ── Totals block ──
+        total_row = row
+        ws.cell(row, 2, f'Total Expenses {cur}').font = Font(bold=True)
+        ws.cell(row, 2).fill = px(PINK)
+        ws.cell(row, 2).alignment = Alignment(horizontal='left')
+        total_f = f'=F{hotel_total_row}+F{svc_total_row}'
+        ws.cell(row, 6, total_f).font = Font(bold=True)
+        ws.cell(row, 6).fill = px(PINK)
+        ws.cell(row, 6).alignment = Alignment(horizontal='center')
+        row += 1
+
+        ws.cell(row, 2, 'Grand Total').font = Font(bold=True)
+        ws.cell(row, 2).fill = px(PINK)
+        ws.cell(row, 6, f'=SUM(F{total_row}:F{total_row})').font = Font(bold=True)
+        ws.cell(row, 6).fill = px(PINK)
+        ws.cell(row, 6).alignment = Alignment(horizontal='center')
+        row += 1
+
+        ws.cell(row, 2, f'Total per 1 pax, {cur} based on {pax}-pax').font = Font(bold=True)
+        ws.cell(row, 2).fill = px(PINK)
+        ws.cell(row, 6, f'=F{row-1}/{pax}').font = Font(bold=True)
+        ws.cell(row, 6).fill = px(PINK)
+        ws.cell(row, 6).alignment = Alignment(horizontal='center')
+        row += 3
+
+        # ── Important notes ──
+        ws.cell(row, 1, 'Important notes:').font = Font(bold=True)
+        row += 1
+        for note in notes:
+            ws.cell(row, 1, note)
+            row += 1
 
     output = BytesIO()
     wb.save(output)
