@@ -351,6 +351,24 @@ def _ext(filename):
     return filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
 
 
+@admin_bp.route('/test-api')
+def test_api():
+    import os, anthropic
+    api_key = os.getenv('ANTHROPIC_API_KEY', '')
+    if not api_key or api_key == 'your-api-key-here':
+        return jsonify({'ok': False, 'error': 'ANTHROPIC_API_KEY is not set in .env'}), 400
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        msg = client.messages.create(
+            model='claude-haiku-4-5-20251001',
+            max_tokens=16,
+            messages=[{'role': 'user', 'content': 'Reply with just: OK'}]
+        )
+        return jsonify({'ok': True, 'response': msg.content[0].text.strip()})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 @admin_bp.route('/import')
 def import_page():
     return render_template('admin/import.html')
@@ -358,52 +376,59 @@ def import_page():
 
 @admin_bp.route('/import/upload', methods=['POST'])
 def import_upload():
-    files = request.files.getlist('files')
-    if not files or all(f.filename == '' for f in files):
-        return jsonify({'error': 'No files uploaded'}), 400
+    try:
+        files = request.files.getlist('files')
+        if not files or all(f.filename == '' for f in files):
+            return jsonify({'error': 'No files uploaded'}), 400
 
-    pptx_parts = []
-    excel_parts = []
-    skipped = []
+        pptx_parts = []
+        excel_parts = []
+        skipped = []
 
-    for f in files:
-        if not f or not _allowed_import(f.filename):
-            skipped.append(f.filename)
-            continue
-        ext = _ext(f.filename)
-        try:
-            file_bytes = f.read()
-            if ext in ('pptx', 'ppt'):
-                text = extract_text_from_pptx(file_bytes)
-                if text.strip():
-                    pptx_parts.append(f"=== {f.filename} ===\n{text}")
-            elif ext in ('xlsx', 'xls'):
-                text = extract_text_from_excel(file_bytes)
-                if text.strip():
-                    excel_parts.append(f"=== {f.filename} ===\n{text}")
-        except Exception as e:
-            skipped.append(f"{f.filename} (error: {str(e)})")
+        for f in files:
+            if not f or not _allowed_import(f.filename):
+                skipped.append(f.filename)
+                continue
+            ext = _ext(f.filename)
+            try:
+                file_bytes = f.read()
+                if ext in ('pptx', 'ppt'):
+                    text = extract_text_from_pptx(file_bytes)
+                    if text.strip():
+                        pptx_parts.append(f"=== {f.filename} ===\n{text}")
+                elif ext in ('xlsx', 'xls'):
+                    text = extract_text_from_excel(file_bytes)
+                    if text.strip():
+                        excel_parts.append(f"=== {f.filename} ===\n{text}")
+            except Exception as e:
+                skipped.append(f"{f.filename} (error: {str(e)})")
 
-    if not pptx_parts and not excel_parts:
-        return jsonify({'error': 'Could not extract text from uploaded files'}), 400
+        if not pptx_parts and not excel_parts:
+            return jsonify({'error': 'Could not extract text from uploaded files'}), 400
 
-    result = {'hotels': [], 'services': []}
+        result = {'hotels': [], 'services': []}
 
-    if pptx_parts:
-        pptx_result = extract_from_pptx_text("\n\n".join(pptx_parts))
-        result['hotels'].extend(pptx_result.get('hotels', []))
-        result['services'].extend(pptx_result.get('services', []))
+        if pptx_parts:
+            pptx_result = extract_from_pptx_text("\n\n".join(pptx_parts))
+            if pptx_result.get('error') and not pptx_result.get('hotels') and not pptx_result.get('services'):
+                return jsonify({'error': pptx_result['error']}), 500
+            result['hotels'].extend(pptx_result.get('hotels', []))
+            result['services'].extend(pptx_result.get('services', []))
 
-    if excel_parts:
-        excel_result = extract_services_from_excel_text("\n\n".join(excel_parts))
-        result['hotels'].extend(excel_result.get('hotels', []))
-        result['services'].extend(excel_result.get('services', []))
+        if excel_parts:
+            excel_result = extract_services_from_excel_text("\n\n".join(excel_parts))
+            if excel_result.get('error') and not excel_result.get('hotels') and not excel_result.get('services'):
+                return jsonify({'error': excel_result['error']}), 500
+            result['hotels'].extend(excel_result.get('hotels', []))
+            result['services'].extend(excel_result.get('services', []))
 
-    if not result['hotels'] and not result['services']:
-        return jsonify({'error': 'No content could be extracted from the files'}), 500
+        if not result['hotels'] and not result['services']:
+            return jsonify({'error': 'No content could be extracted from the files'}), 500
 
-    result['skipped'] = skipped
-    return jsonify(result)
+        result['skipped'] = skipped
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 
 @admin_bp.route('/import/save', methods=['POST'])

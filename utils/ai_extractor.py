@@ -363,31 +363,34 @@ def extract_services_from_excel_text(text: str) -> dict:
     if not api_key or api_key == 'your-api-key-here':
         return {"error": "ANTHROPIC_API_KEY not configured", "hotels": [], "services": []}
 
-    client = anthropic.Anthropic(api_key=api_key)
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
 
-    prompt = EXCEL_EXTRACTION_PROMPT.replace('{{text}}', text).replace('{{', '{').replace('}}', '}')
+        prompt = EXCEL_EXTRACTION_PROMPT.replace('{{text}}', text).replace('{{', '{').replace('}}', '}')
 
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=8096,
-        system=EXCEL_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}]
-    )
+        message = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=8096,
+            system=EXCEL_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}]
+        )
 
-    response_text = message.content[0].text.strip()
-    if response_text.startswith("```"):
-        lines = response_text.split("\n")
-        response_text = "\n".join(lines[1:-1])
+        response_text = message.content[0].text.strip()
+        if response_text.startswith("```"):
+            lines = response_text.split("\n")
+            response_text = "\n".join(lines[1:-1])
 
-    start = response_text.find('{')
-    end = response_text.rfind('}') + 1
-    if start >= 0 and end > start:
-        try:
-            return json.loads(response_text[start:end])
-        except json.JSONDecodeError:
-            pass
+        start = response_text.find('{')
+        end = response_text.rfind('}') + 1
+        if start >= 0 and end > start:
+            try:
+                return json.loads(response_text[start:end])
+            except json.JSONDecodeError:
+                pass
 
-    return {"error": "Could not parse AI response", "services": []}
+        return {"error": "Could not parse AI response", "hotels": [], "services": []}
+    except Exception as e:
+        return {"error": f"AI extraction failed: {str(e)}", "hotels": [], "services": []}
 
 
 def extract_from_pptx_text(text: str) -> dict:
@@ -395,31 +398,33 @@ def extract_from_pptx_text(text: str) -> dict:
     if not api_key or api_key == 'your-api-key-here':
         return {"error": "ANTHROPIC_API_KEY not configured", "hotels": [], "services": []}
 
-    client = anthropic.Anthropic(api_key=api_key)
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
 
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=8096,
-        system=SYSTEM_PROMPT,
-        messages=[{
-            "role": "user",
-            "content": EXTRACTION_PROMPT.format(text=text)
-        }]
-    )
+        message = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=8096,
+            system=SYSTEM_PROMPT,
+            messages=[{
+                "role": "user",
+                "content": EXTRACTION_PROMPT.replace('{text}', text)
+            }]
+        )
 
-    response_text = message.content[0].text.strip()
+        response_text = message.content[0].text.strip()
 
-    # Strip markdown code fences if present
-    if response_text.startswith("```"):
-        lines = response_text.split("\n")
-        response_text = "\n".join(lines[1:-1])
+        if response_text.startswith("```"):
+            lines = response_text.split("\n")
+            response_text = "\n".join(lines[1:-1])
 
-    start = response_text.find('{')
-    end = response_text.rfind('}') + 1
-    if start >= 0 and end > start:
-        try:
-            return json.loads(response_text[start:end])
-        except json.JSONDecodeError:
-            pass
+        start = response_text.find('{')
+        end = response_text.rfind('}') + 1
+        if start >= 0 and end > start:
+            try:
+                return json.loads(response_text[start:end])
+            except json.JSONDecodeError:
+                pass
 
-    return {"error": "Could not parse AI response", "hotels": [], "services": []}
+        return {"error": "Could not parse AI response", "hotels": [], "services": []}
+    except Exception as e:
+        return {"error": f"AI extraction failed: {str(e)}", "hotels": [], "services": []}

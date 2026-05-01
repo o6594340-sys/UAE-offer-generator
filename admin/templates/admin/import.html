@@ -164,6 +164,9 @@
   <button class="btn" id="analyze-btn" onclick="startAnalysis()" disabled>
     Analyze with AI
   </button>
+  <button class="btn" onclick="testApi()" style="background:#6c757d; margin-left:8px;">
+    Test API Key
+  </button>
 
   <div class="error-box" id="error-box"></div>
 </div>
@@ -511,6 +514,35 @@ async function saveSelected() {
 
 function esc(str) {
   return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function testApi() {
+  const box = document.getElementById('error-box');
+  box.textContent = '⏳ Testing API key...';
+  box.style.display = 'block';
+  box.style.background = '#e8f0fe';
+  box.style.color = '#1a73e8';
+  box.style.borderColor = '#90caf9';
+  try {
+    const resp = await fetch('/admin/test-api');
+    const data = await resp.json();
+    if (data.ok) {
+      box.textContent = '✅ API key is working. Response: ' + data.response;
+      box.style.background = '#e6f4ea';
+      box.style.color = '#1e6e2e';
+      box.style.borderColor = '#a8d5b5';
+    } else {
+      box.textContent = '⚠️ API key error: ' + data.error;
+      box.style.background = '#fce8e6';
+      box.style.color = '#c62828';
+      box.style.borderColor = '#f5c6cb';
+    }
+  } catch (err) {
+    box.textContent = '⚠️ Network error: ' + err.message;
+    box.style.background = '#fce8e6';
+    box.style.color = '#c62828';
+    box.style.borderColor = '#f5c6cb';
+  }
 }
 </script>
 {% endblock %}
