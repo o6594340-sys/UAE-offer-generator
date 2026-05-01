@@ -139,7 +139,7 @@
 
     <button class="btn parse-btn" onclick="parseBrief()">
       <span class="parse-spinner spin" id="parse-spin">⏳</span>
-      <span id="parse-btn-text">Fill form with Claude AI</span>
+      <span id="parse-btn-text">Fill form with AI</span>
     </button>
     <div class="parse-result" id="parse-result"></div>
   </div>
@@ -369,7 +369,7 @@ function showParseResult(type, msg) {
 
 function resetParseBtn() {
   document.getElementById('parse-spin').style.display = 'none';
-  document.getElementById('parse-btn-text').textContent = 'Fill form with Claude AI';
+  document.getElementById('parse-btn-text').textContent = 'Fill form with AI';
 }
 
 // Checkbox items
