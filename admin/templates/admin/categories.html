@@ -45,15 +45,10 @@
 </div>
 
 <div class="card" style="margin-top: 20px;">
-    <h3>Default Categories (Quick Setup)</h3>
-    <p>Common service categories for Dubai tourism:</p>
-    <ul style="margin-left: 20px;">
-        <li>Accommodation</li>
-        <li>Transfers & Transport</li>
-        <li>Activities & Excursions</li>
-        <li>Dining & Catering</li>
-        <li>Events & Entertainment</li>
-        <li>Additional Services</li>
-    </ul>
+    <h3>Quick Setup</h3>
+    <p>Click to create all standard categories at once:</p>
+    <form method="POST" action="/admin/categories/init" style="margin-top: 10px; display: block;">
+        <button type="submit" class="btn success">Initialize Default Categories</button>
+    </form>
 </div>
 {% endblock %}

@@ -33,17 +33,17 @@
             </div>
             
             <div class="form-group">
-                <label for="rate_single_aed">Single Room Rate (AED/night) *</label>
-                <input type="number" id="rate_single_aed" name="rate_single_aed" 
-                       value="{% if hotel %}{{ hotel.rate_single_aed }}{% endif %}" 
+                <label for="rate_single_aed">Single Room Rate (USD/night) *</label>
+                <input type="number" id="rate_single_aed" name="rate_single_aed"
+                       value="{% if hotel %}{{ hotel.rate_single_aed }}{% endif %}"
                        step="0.01" required>
             </div>
         </div>
-        
+
         <div class="form-group">
-            <label for="rate_twin_aed">Twin/Double Room Rate (AED/night) *</label>
-            <input type="number" id="rate_twin_aed" name="rate_twin_aed" 
-                   value="{% if hotel %}{{ hotel.rate_twin_aed }}{% endif %}" 
+            <label for="rate_twin_aed">Twin/Double Room Rate (USD/night) *</label>
+            <input type="number" id="rate_twin_aed" name="rate_twin_aed"
+                   value="{% if hotel %}{{ hotel.rate_twin_aed }}{% endif %}"
                    step="0.01" required>
         </div>
         

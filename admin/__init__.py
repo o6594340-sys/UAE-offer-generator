@@ -185,6 +185,28 @@ def categories():
     return render_template('admin/categories.html', categories=categories)
 
 
+DEFAULT_CATEGORIES = [
+    'Accommodation',
+    'Transfers & Transport',
+    'Activities & Excursions',
+    'Dining & Catering',
+    'Events & Entertainment',
+    'Additional Services',
+]
+
+
+@admin_bp.route('/categories/init', methods=['POST'])
+def init_categories():
+    created = 0
+    for name in DEFAULT_CATEGORIES:
+        if not ServiceCategory.query.filter_by(name=name).first():
+            db.session.add(ServiceCategory(name=name, description=''))
+            created += 1
+    db.session.commit()
+    flash(f'Done: {created} categories created', 'success')
+    return redirect(url_for('admin.categories'))
+
+
 @admin_bp.route('/categories/add', methods=['POST'])
 def add_category():
     """Add service category"""

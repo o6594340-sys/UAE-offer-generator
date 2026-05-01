@@ -17,18 +17,14 @@ proposal_bp = Blueprint('proposal', __name__, template_folder='templates')
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def _get_rate(currency_code):
-    """Return (aed_rate, target_rate). Prices stored in AED."""
-    aed = Currency.query.filter_by(code='AED').first()
+    """Return target currency rate. Prices stored in USD (rate=1.0)."""
     target = Currency.query.filter_by(code=currency_code).first()
-    aed_rate = aed.custom_rate if aed else 3.67
-    target_rate = target.custom_rate if target else 1.0
-    return aed_rate, target_rate
+    return target.custom_rate if target else 1.0
 
 
-def _aed_to(price_aed, aed_rate, target_rate):
-    if aed_rate == 0:
-        return 0
-    return price_aed / aed_rate * target_rate
+def _usd_to(price_usd, target_rate):
+    """Convert USD price to target currency."""
+    return price_usd * target_rate
 
 
 def _nights(arrival, departure):
@@ -38,8 +34,8 @@ def _nights(arrival, departure):
 
 
 def _build_budget(proposal):
-    """Return structured budget dict for template and Excel."""
-    aed_rate, target_rate = _get_rate(proposal.currency_code)
+    """Return structured budget dict for template and Excel. Prices stored in USD."""
+    target_rate = _get_rate(proposal.currency_code)
     nights = _nights(proposal.arrival_date, proposal.departure_date)
     pax = proposal.pax
 
@@ -51,19 +47,17 @@ def _build_budget(proposal):
 
     hotel_rows = []
     for h in hotels:
-        single_aed = h.rate_single_aed * nights
-        twin_aed = h.rate_twin_aed * nights
+        single_usd = h.rate_single_aed * nights   # field stores USD despite name
+        twin_usd = h.rate_twin_aed * nights
         hotel_rows.append({
             'name': h.name,
             'location': h.location,
             'stars': h.stars,
             'nights': nights,
-            'rate_single_aed': h.rate_single_aed,
-            'rate_twin_aed': h.rate_twin_aed,
-            'total_single_aed': single_aed,
-            'total_twin_aed': twin_aed,
-            'total_single': _aed_to(single_aed, aed_rate, target_rate),
-            'total_twin': _aed_to(twin_aed, aed_rate, target_rate),
+            'rate_single_usd': h.rate_single_aed,
+            'rate_twin_usd': h.rate_twin_aed,
+            'total_single': _usd_to(single_usd, target_rate),
+            'total_twin': _usd_to(twin_usd, target_rate),
         })
 
     service_rows = []
@@ -77,15 +71,14 @@ def _build_budget(proposal):
             qty = math.ceil(pax / 2)
         else:
             qty = 1
-        total_aed = s.price_aed * qty
+        total_usd = s.price_aed * qty   # field stores USD despite name
         service_rows.append({
             'name': s.name,
             'category': s.category.name if s.category else '',
-            'price_aed': s.price_aed,
+            'price_usd': s.price_aed,
             'unit': unit,
             'qty': qty,
-            'total_aed': total_aed,
-            'total': _aed_to(total_aed, aed_rate, target_rate),
+            'total': _usd_to(total_usd, target_rate),
         })
 
     services_total = sum(r['total'] for r in service_rows)
@@ -199,7 +192,7 @@ def _generate_excel(proposal, budget):
     wb.remove(wb.active)          # remove default sheet; we add per hotel below
 
     cur = budget['currency']
-    aed_r, tgt_r = _get_aed_target(proposal.currency_code)
+    tgt_r = _get_rate(proposal.currency_code)
     pax = proposal.pax
     nights = budget['nights']
 
@@ -210,8 +203,8 @@ def _generate_excel(proposal, budget):
         s = Side(style='thin', color='CCCCCC')
         return Border(left=s, right=s, top=s, bottom=s)
 
-    def _price(aed_val):
-        return round(_aed_to(aed_val, aed_r, tgt_r), 2)
+    def _price(usd_val):
+        return round(_usd_to(usd_val, tgt_r), 2)
 
     period_str = ''
     if proposal.arrival_date and proposal.departure_date:
@@ -274,8 +267,8 @@ def _generate_excel(proposal, budget):
         ws.cell(row, 1, h['name']).font = Font(bold=True)
         row += 1
 
-        single_price = _price(h['rate_single_aed'])
-        twin_price = _price(h['rate_twin_aed'])
+        single_price = _price(h['rate_single_usd'])
+        twin_price = _price(h['rate_twin_usd'])
 
         # Twin row
         twin_row = row
@@ -329,7 +322,7 @@ def _generate_excel(proposal, budget):
             ws.cell(row, 2).alignment = Alignment(horizontal='left', wrap_text=True)
             ws.cell(row, 3, qty).alignment = Alignment(horizontal='center')
             ws.cell(row, 4, freq).alignment = Alignment(horizontal='center')
-            ws.cell(row, 5, _price(s['price_aed'])).alignment = Alignment(horizontal='center')
+            ws.cell(row, 5, _price(s['price_usd'])).alignment = Alignment(horizontal='center')
             ws.cell(row, 6, f'=C{row}*D{row}*E{row}').alignment = Alignment(horizontal='center')
             ws.cell(row, 7, s['category'])
             ws.row_dimensions[row].height = 28.8
@@ -379,7 +372,3 @@ def _generate_excel(proposal, budget):
     return output
 
 
-def _get_aed_target(currency_code):
-    aed = Currency.query.filter_by(code='AED').first()
-    target = Currency.query.filter_by(code=currency_code).first()
-    return (aed.custom_rate if aed else 3.67), (target.custom_rate if target else 1.0)
