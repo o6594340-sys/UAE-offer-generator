@@ -117,7 +117,18 @@ Presentation text:
 EXCEL_SYSTEM_PROMPT = """You are an expert at extracting structured tourism service data from Excel price lists for a UAE destination management company.
 Return ONLY valid JSON, no explanation."""
 
-EXCEL_EXTRACTION_PROMPT = """Extract all services and prices from the following Excel spreadsheet data.
+EXCEL_EXTRACTION_PROMPT = """Extract all services and their UNIT prices from the following Excel spreadsheet data.
+
+The spreadsheet is typically a proposal/price list template with columns like:
+  Timing | Service | Unit/Qty | Frequency | Price per unit | Total | Comments
+
+CRITICAL PRICE RULES:
+- The "Total" or "Grand Total" column is ALWAYS 0 or a formula — IGNORE IT
+- You MUST use the "Price per unit" / "Rate" / "Unit price" column (usually the 5th or 6th column)
+- If the spreadsheet has columns like [service name] [qty=0] [freq=1] [price=150] [total=0], the price is 150
+- Look for any non-zero numeric value in a price/rate/cost column for each row
+- If a cell contains text like "USD 150" or "150 USD" or "150/pax", extract the number 150
+- Only use 0 if there is truly no price value anywhere on that row
 
 Return ONLY valid JSON in this exact format:
 {{
@@ -126,7 +137,7 @@ Return ONLY valid JSON in this exact format:
       "name": "Service name",
       "category": "Activities & Excursions",
       "description": "Description if available, else empty string",
-      "price_aed": 0,
+      "price_aed": 150,
       "unit": "per person"
     }}
   ]
@@ -135,13 +146,11 @@ Return ONLY valid JSON in this exact format:
 Allowed categories: "Accommodation", "Transfers & Transport", "Activities & Excursions", "Dining & Catering", "Events & Entertainment", "Additional Services"
 Allowed units: "per person", "per room", "per event", "per day", "per group", "fixed"
 
-Rules:
-- Extract EVERY distinct service/activity/transfer that has a name
-- price_aed field stores the price value (use whatever numeric price you find in the spreadsheet)
-- If price is missing, use 0
-- If unit is not specified, guess from context or use "per person"
-- Pick the best matching category based on service type
-- Restaurants/dining → "Dining & Catering", transfers/buses → "Transfers & Transport", tours/excursions → "Activities & Excursions", galas/teambuilding → "Events & Entertainment"
+Additional rules:
+- Extract EVERY distinct service/activity/transfer/room type that has a name
+- If unit is not specified, infer from context: room types → "per room", tours → "per person", buses → "per group"
+- Pick category from context: Restaurants/dining → "Dining & Catering", transfers/buses → "Transfers & Transport", tours/excursions → "Activities & Excursions", galas/teambuilding → "Events & Entertainment", hotel rooms → "Accommodation"
+- Skip header rows, footer rows, and rows that are just dates or section titles with no service name
 
 Spreadsheet data:
 {{text}}"""
