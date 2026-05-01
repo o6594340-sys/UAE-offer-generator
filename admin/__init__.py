@@ -394,6 +394,7 @@ def import_upload():
 
     if excel_parts:
         excel_result = extract_services_from_excel_text("\n\n".join(excel_parts))
+        result['hotels'].extend(excel_result.get('hotels', []))
         result['services'].extend(excel_result.get('services', []))
 
     if not result['hotels'] and not result['services']:
