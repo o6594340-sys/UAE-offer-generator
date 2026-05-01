@@ -206,13 +206,18 @@
   </div>
 </div>
 
-{% if proposal.itinerary_json %}
-{% set itin = proposal.itinerary_json | fromjson %}
-{% if itin %}
-<div class="section-card" style="margin-top:20px">
-  <div class="section-head" style="background:#f5f3ff; color:#5b21b6;">📋 Program / Itinerary</div>
-  <div style="padding:16px 20px">
-    {% for day in itin %}
+{% if itinerary %}
+<div class="section-card" style="margin-top:20px" id="itin-card">
+  <div class="section-head" style="background:#f5f3ff; color:#5b21b6; display:flex; justify-content:space-between; align-items:center;">
+    <span>📋 Program / Itinerary</span>
+    <button onclick="toggleEditPanel()" class="btn" style="font-size:12px; padding:4px 12px; background:white; color:#7c3aed; border:1px solid #c4b5fd;">
+      ✏️ Edit Program
+    </button>
+  </div>
+
+  <!-- Itinerary display -->
+  <div style="padding:16px 20px" id="itin-display">
+    {% for day in itinerary %}
     <div style="margin-bottom:16px;">
       <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
         <div style="background:#7c3aed; color:white; border-radius:50%; width:28px; height:28px;
@@ -222,21 +227,35 @@
         <strong style="color:#374151;">{{ day.label or ('Day ' ~ day.day) }}</strong>
       </div>
       {% for item in day.items %}
-      {% if item.service_id %}
-      <div style="display:grid; grid-template-columns:70px 1fr auto; gap:8px; padding:6px 12px;
+      <div style="display:grid; grid-template-columns:70px 1fr; gap:8px; padding:6px 12px;
                   background:#faf9ff; border-radius:6px; margin-bottom:4px; font-size:13px;">
         <span style="color:#7c3aed; font-weight:600;">{{ item.timing or '—' }}</span>
-        <span>{{ item.service_name or ('Service #' ~ item.service_id) }}
+        <span>{{ item.service_name or item.get('name', '') or ('Service #' ~ item.service_id) }}
           {% if item.note %}<span style="color:#888; margin-left:6px;">· {{ item.note }}</span>{% endif %}
         </span>
       </div>
-      {% endif %}
       {% endfor %}
     </div>
     {% endfor %}
   </div>
+
+  <!-- Edit via comments panel -->
+  <div id="edit-panel" style="display:none; padding:0 20px 20px; border-top:1px solid #e9d5ff; margin-top:4px;">
+    <p style="color:#6d28d9; font-size:13px; margin:14px 0 8px; font-weight:600;">
+      Describe what to change — AI will update the program:
+    </p>
+    <textarea id="change-request" rows="3"
+      style="width:100%; padding:10px; border:1px solid #c4b5fd; border-radius:8px; font-size:14px; resize:vertical;"
+      placeholder="e.g. Add yacht on day 3, replace city tour with desert safari on day 2, remove gala dinner..."></textarea>
+    <div style="display:flex; gap:10px; margin-top:10px; align-items:center;">
+      <button onclick="applyChanges()" id="apply-btn"
+        style="background:#7c3aed; color:white; border:none; border-radius:8px; padding:10px 22px; font-size:14px; cursor:pointer;">
+        ✨ Apply Changes with AI
+      </button>
+      <span id="apply-status" style="font-size:13px; color:#888;"></span>
+    </div>
+  </div>
 </div>
-{% endif %}
 {% endif %}
 
 {% if proposal.special_requests %}
@@ -248,4 +267,82 @@
 </div>
 {% endif %}
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const PROPOSAL_ID = {{ proposal.id | tojson }};
+
+function toggleEditPanel() {
+  const p = document.getElementById('edit-panel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  if (p.style.display === 'block') document.getElementById('change-request').focus();
+}
+
+async function applyChanges() {
+  const txt = document.getElementById('change-request').value.trim();
+  if (!txt) { alert('Please describe what you want to change.'); return; }
+
+  const btn = document.getElementById('apply-btn');
+  const status = document.getElementById('apply-status');
+  btn.disabled = true;
+  btn.textContent = '⏳ AI is updating...';
+  status.textContent = '';
+
+  try {
+    const resp = await fetch(`/proposal/${PROPOSAL_ID}/update-itinerary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ change_request: txt })
+    });
+    const data = await resp.json();
+
+    if (!resp.ok || data.error) {
+      status.textContent = '⚠️ ' + (data.error || 'Error');
+      status.style.color = '#c62828';
+      return;
+    }
+
+    renderItinerary(data.itinerary);
+    document.getElementById('change-request').value = '';
+    document.getElementById('edit-panel').style.display = 'none';
+    status.style.color = '#1e6e2e';
+    status.textContent = '✅ Program updated';
+
+  } catch (err) {
+    status.textContent = '⚠️ Network error';
+    status.style.color = '#c62828';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✨ Apply Changes with AI';
+  }
+}
+
+function renderItinerary(days) {
+  const display = document.getElementById('itin-display');
+  if (!display) return;
+  display.innerHTML = days.map(day => `
+    <div style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div style="background:#7c3aed;color:white;border-radius:50%;width:28px;height:28px;
+                    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">
+          ${day.day}
+        </div>
+        <strong style="color:#374151;">${esc(day.label || 'Day ' + day.day)}</strong>
+      </div>
+      ${(day.items||[]).map(item => `
+        <div style="display:grid;grid-template-columns:70px 1fr;gap:8px;padding:6px 12px;
+                    background:#faf9ff;border-radius:6px;margin-bottom:4px;font-size:13px;">
+          <span style="color:#7c3aed;font-weight:600;">${esc(item.timing||'—')}</span>
+          <span>${esc(item.service_name||item.name||'')}
+            ${item.note?`<span style="color:#888;margin-left:6px;">· ${esc(item.note)}</span>`:''}
+          </span>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function esc(s) {
+  return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
 {% endblock %}

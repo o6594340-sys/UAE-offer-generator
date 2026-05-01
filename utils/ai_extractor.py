@@ -109,6 +109,80 @@ def suggest_program(group_type: str, industry: str, pax: int, nights: int,
     return {"error": "Could not parse AI response"}
 
 
+UPDATE_SYSTEM_PROMPT = """You are a senior program planner at INSIDERS Tourism Dubai.
+You update existing event itineraries based on manager's change requests.
+Return ONLY valid JSON, no explanation outside the JSON."""
+
+UPDATE_PROMPT = """Here is the current program itinerary and a change request from the manager.
+Apply the changes and return the updated itinerary.
+
+CURRENT ITINERARY (JSON):
+{current_itinerary}
+
+AVAILABLE SERVICES (ID | Name | Category):
+{services_list}
+
+MANAGER'S CHANGE REQUEST:
+"{change_request}"
+
+Rules:
+- Apply EXACTLY what the manager requested — this is top priority
+- If they say "add X on day N" — add that service to that day
+- If they say "remove X" or "replace X with Y" — do exactly that
+- If they mention a service not in the catalog, add it with service_id: null and service_name equal to what they said
+- Keep all other days and items unchanged
+- Keep the same JSON structure
+
+Return ONLY valid JSON:
+{{
+  "itinerary": [
+    {{
+      "day": 1,
+      "label": "Day label",
+      "items": [
+        {{"service_id": 5, "service_name": "Service name", "timing": "09:00", "note": ""}}
+      ]
+    }}
+  ]
+}}"""
+
+
+def update_itinerary(current: list, change_request: str, services: list) -> dict:
+    api_key = os.getenv('ANTHROPIC_API_KEY', '')
+    if not api_key or api_key == 'your-api-key-here':
+        return {"error": "ANTHROPIC_API_KEY not configured"}
+
+    services_list = '\n'.join(f"{s['id']} | {s['name']} | {s['category']}" for s in services)
+    prompt = UPDATE_PROMPT.format(
+        current_itinerary=json.dumps(current, ensure_ascii=False, indent=2),
+        services_list=services_list,
+        change_request=change_request,
+    ).replace('{{', '{').replace('}}', '}')
+
+    client = anthropic.Anthropic(api_key=api_key)
+    message = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=4096,
+        system=UPDATE_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    response_text = message.content[0].text.strip()
+    if response_text.startswith("```"):
+        lines = response_text.split("\n")
+        response_text = "\n".join(lines[1:-1])
+
+    start = response_text.find('{')
+    end = response_text.rfind('}') + 1
+    if start >= 0 and end > start:
+        try:
+            return json.loads(response_text[start:end])
+        except json.JSONDecodeError:
+            pass
+
+    return {"error": "Could not parse AI response"}
+
+
 BRIEF_SYSTEM_PROMPT = """You are an expert assistant for a UAE destination management company (DMC).
 You extract client brief information from documents or emails to prefill a proposal form.
 Return ONLY valid JSON, no explanation."""

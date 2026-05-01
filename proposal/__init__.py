@@ -3,13 +3,14 @@ Proposal blueprint - brief form, budget view, Excel export
 """
 import uuid
 import math
+import json
 from datetime import datetime
 from io import BytesIO
 
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, send_file
 from models import db, Hotel, Service, ServiceCategory, Currency, Proposal
 from utils.brief_extractor import extract_text_from_brief
-from utils.ai_extractor import extract_from_brief_text, suggest_program
+from utils.ai_extractor import extract_from_brief_text, suggest_program, update_itinerary
 
 proposal_bp = Blueprint('proposal', __name__, template_folder='templates')
 
@@ -219,11 +220,44 @@ def brief_submit():
     return redirect(url_for('proposal.budget_view', proposal_id=proposal.id))
 
 
+def _parse_itinerary(proposal):
+    try:
+        return json.loads(proposal.itinerary_json) if proposal.itinerary_json else []
+    except Exception:
+        return []
+
+
 @proposal_bp.route('/proposal/<proposal_id>')
 def budget_view(proposal_id):
     proposal = Proposal.query.get_or_404(proposal_id)
     budget = _build_budget(proposal)
-    return render_template('proposal/budget.html', proposal=proposal, budget=budget)
+    itinerary = _parse_itinerary(proposal)
+    return render_template('proposal/budget.html', proposal=proposal, budget=budget, itinerary=itinerary)
+
+
+@proposal_bp.route('/proposal/<proposal_id>/update-itinerary', methods=['POST'])
+def update_itinerary_route(proposal_id):
+    proposal = Proposal.query.get_or_404(proposal_id)
+    data = request.get_json()
+    change_request = data.get('change_request', '').strip()
+    if not change_request:
+        return jsonify({'error': 'No change request provided'}), 400
+
+    current = _parse_itinerary(proposal)
+    services = Service.query.filter_by(active=True).all()
+    services_list = [
+        {'id': s.id, 'name': s.name,
+         'category': s.category.name if s.category else 'Other'}
+        for s in services
+    ]
+
+    result = update_itinerary(current, change_request, services_list)
+    if 'error' in result:
+        return jsonify({'error': result['error']}), 500
+
+    proposal.itinerary_json = json.dumps(result['itinerary'])
+    db.session.commit()
+    return jsonify({'itinerary': result['itinerary']})
 
 
 @proposal_bp.route('/proposal/<proposal_id>/excel')
