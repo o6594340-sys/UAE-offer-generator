@@ -82,10 +82,19 @@
     box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
   }
   .item-card .card-check {
-    position: absolute; top: 14px; right: 14px;
+    position: absolute; top: 14px; right: 40px;
     width: 22px; height: 22px; cursor: pointer;
     accent-color: #1a73e8;
   }
+  .item-card .card-remove-btn {
+    position: absolute; top: 10px; right: 10px;
+    width: 24px; height: 24px; border-radius: 50%;
+    border: none; background: transparent; color: #bbb;
+    font-size: 14px; cursor: pointer; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+  }
+  .item-card .card-remove-btn:hover { background: #fee; color: #ea4335; }
   .item-card .card-type {
     font-size: 11px; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.5px; color: #888; margin-bottom: 6px;
@@ -169,9 +178,12 @@
   <div class="card">
     <div class="results-header">
       <h2>Extracted Content</h2>
-      <div class="summary-badges">
+      <div style="display:flex; align-items:center; gap:12px;">
         <span class="badge hotel" id="hotel-badge">0 hotels</span>
         <span class="badge service" id="service-badge">0 services</span>
+        <button class="btn" onclick="clearResults()" style="font-size:13px; padding:5px 14px; background:#f1f3f4; color:#444; border:1px solid #ddd;">
+          ✕ Clear &amp; start over
+        </button>
       </div>
     </div>
 
@@ -326,6 +338,7 @@ function buildHotelCard(h, i) {
   card.dataset.idx = i;
   card.innerHTML = `
     <input type="checkbox" class="card-check" checked onchange="toggleCard(this)">
+    <button class="card-remove-btn" onclick="removeCard(this)" title="Remove">✕</button>
     <div class="card-type hotel">Hotel</div>
     <div class="field">
       <label>Name</label>
@@ -370,6 +383,7 @@ function buildServiceCard(s, i) {
   card.dataset.idx = i;
   card.innerHTML = `
     <input type="checkbox" class="card-check" checked onchange="toggleCard(this)">
+    <button class="card-remove-btn" onclick="removeCard(this)" title="Remove">✕</button>
     <div class="card-type service">${esc(s.category || 'Service')}</div>
     <div class="field">
       <label>Name</label>
@@ -404,6 +418,24 @@ function buildServiceCard(s, i) {
 function toggleCard(checkbox) {
   checkbox.closest('.item-card').classList.toggle('selected', checkbox.checked);
   updateCount();
+}
+
+function removeCard(btn) {
+  btn.closest('.item-card').remove();
+  updateCount();
+}
+
+function clearResults() {
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('success-msg').style.display = 'none';
+  document.getElementById('error-box').style.display = 'none';
+  document.getElementById('hotels-grid').innerHTML = '';
+  document.getElementById('services-grid').innerHTML = '';
+  extractedData = { hotels: [], services: [] };
+  selectedFiles = [];
+  renderFileList();
+  document.getElementById('analyze-btn').disabled = true;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function selectAll(type) {
