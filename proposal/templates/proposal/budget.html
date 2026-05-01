@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}Proposal — {{ proposal.company_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .proposal-header {
+    background: linear-gradient(135deg, #1a73e8, #1565c0);
+    color: white; border-radius: 10px;
+    padding: 28px 30px; margin-bottom: 24px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+  }
+  .proposal-header h2 { font-size: 22px; margin-bottom: 6px; }
+  .proposal-header .meta { font-size: 13px; opacity: 0.85; line-height: 1.8; }
+  .proposal-header .actions { display: flex; gap: 10px; flex-shrink: 0; }
+  .btn-white {
+    background: white; color: #1a73e8; font-weight: 600;
+    padding: 10px 22px; border-radius: 6px; text-decoration: none;
+    font-size: 14px; border: none; cursor: pointer; transition: opacity 0.2s;
+  }
+  .btn-white:hover { opacity: 0.9; }
+  .btn-outline {
+    background: transparent; color: white; font-weight: 600;
+    padding: 10px 22px; border-radius: 6px; text-decoration: none;
+    font-size: 14px; border: 2px solid rgba(255,255,255,0.6); cursor: pointer;
+  }
+  .btn-outline:hover { background: rgba(255,255,255,0.15); }
+
+  .section-card { background: white; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 20px; overflow: hidden; }
+  .section-head {
+    padding: 14px 20px; font-weight: 700; font-size: 15px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-head.blue { background: #e8f0fe; color: #1a73e8; }
+  .section-head.gold { background: #fef9e7; color: #a05000; }
+  .section-head.green { background: #e6f4ea; color: #1e6e2e; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #f8f9fa; padding: 11px 16px; text-align: left; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #555; border-bottom: 2px solid #e0e0e0; }
+  td { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafafa; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .total-row td { font-weight: 700; background: #f8f9fa; }
+
+  .grand-totals {
+    background: white; border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    padding: 24px 28px;
+  }
+  .grand-totals h3 { margin-bottom: 18px; font-size: 16px; }
+  .total-line {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 15px;
+  }
+  .total-line:last-child { border-bottom: none; }
+  .total-line.grand {
+    font-size: 18px; font-weight: 700; color: #1a73e8;
+    border-top: 2px solid #1a73e8; border-bottom: none;
+    padding-top: 16px; margin-top: 6px;
+  }
+  .total-line .label { color: #444; }
+  .total-line .amount { font-weight: 600; }
+
+  .stars { color: #f9ab00; }
+  .badge-cat {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; background: #e8f0fe; color: #1a73e8; font-weight: 600;
+  }
+
+  .special-box {
+    background: #fffde7; border: 1px solid #ffe082; border-radius: 8px;
+    padding: 16px 20px; font-size: 14px; color: #5d4037; white-space: pre-wrap;
+  }
+
+  .empty-state { padding: 20px; text-align: center; color: #999; font-size: 14px; }
+
+  @media print {
+    header, .actions, .btn-white, .btn-outline { display: none !important; }
+    .proposal-header { background: #1a73e8 !important; -webkit-print-color-adjust: exact; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="proposal-header">
+  <div>
+    <h2>{{ proposal.company_name }}</h2>
+    <div class="meta">
+      {{ proposal.group_type }}{% if proposal.industry %} · {{ proposal.industry }}{% endif %}<br>
+      {{ budget.pax }} people · {{ budget.nights }} night{{ 's' if budget.nights != 1 else '' }}
+      {% if proposal.arrival_date %} · {{ proposal.arrival_date.strftime('%d %b') }}{% endif %}
+      {% if proposal.departure_date %} – {{ proposal.departure_date.strftime('%d %b %Y') }}{% endif %}<br>
+      Currency: <strong>{{ budget.currency }}</strong>
+    </div>
+  </div>
+  <div class="actions">
+    <a href="/proposal/{{ proposal.id }}/excel" class="btn-white">⬇ Download Excel</a>
+    <a href="/brief" class="btn-outline">+ New Proposal</a>
+  </div>
+</div>
+
+<!-- Hotels -->
+<div class="section-card">
+  <div class="section-head blue">🏨 Hotels</div>
+  {% if budget.hotels %}
+  <table>
+    <thead>
+      <tr>
+        <th>Hotel</th>
+        <th>Location</th>
+        <th>Stars</th>
+        <th class="num">Nights</th>
+        <th class="num">Single/night</th>
+        <th class="num">Twin/night</th>
+        <th class="num">Total (Single)</th>
+        <th class="num">Total (Twin)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for h in budget.hotels %}
+      <tr>
+        <td><strong>{{ h.name }}</strong></td>
+        <td>{{ h.location }}</td>
+        <td class="stars">{{ '★' * h.stars }}</td>
+        <td class="num">{{ h.nights }}</td>
+        <td class="num">{{ '%.2f'|format(h.rate_single_aed / (budget.hotels_total_single / h.total_single if h.total_single else 1) / h.nights) }}</td>
+        <td class="num">{{ '%.2f'|format(h.total_single / h.nights) if h.nights else '—' }}</td>
+        <td class="num"><strong>{{ '%.2f'|format(h.total_single) }} {{ budget.currency }}</strong></td>
+        <td class="num"><strong>{{ '%.2f'|format(h.total_twin) }} {{ budget.currency }}</strong></td>
+      </tr>
+      {% endfor %}
+      <tr class="total-row">
+        <td colspan="6">Hotels Subtotal</td>
+        <td class="num">{{ '%.2f'|format(budget.hotels_total_single) }} {{ budget.currency }}</td>
+        <td class="num">{{ '%.2f'|format(budget.hotels_total_twin) }} {{ budget.currency }}</td>
+      </tr>
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">No hotels selected</div>
+  {% endif %}
+</div>
+
+<!-- Services -->
+<div class="section-card">
+  <div class="section-head gold">🎯 Services & Activities</div>
+  {% if budget.services %}
+  <table>
+    <thead>
+      <tr>
+        <th>Service</th>
+        <th>Category</th>
+        <th>Unit</th>
+        <th class="num">Qty</th>
+        <th class="num">Price/unit</th>
+        <th class="num">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in budget.services %}
+      <tr>
+        <td><strong>{{ s.name }}</strong></td>
+        <td><span class="badge-cat">{{ s.category }}</span></td>
+        <td>{{ s.unit }}</td>
+        <td class="num">{{ s.qty }}</td>
+        <td class="num">{{ '%.2f'|format(s.total / s.qty if s.qty else 0) }} {{ budget.currency }}</td>
+        <td class="num"><strong>{{ '%.2f'|format(s.total) }} {{ budget.currency }}</strong></td>
+      </tr>
+      {% endfor %}
+      <tr class="total-row">
+        <td colspan="5">Services Subtotal</td>
+        <td class="num">{{ '%.2f'|format(budget.services_total) }} {{ budget.currency }}</td>
+      </tr>
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">No services selected</div>
+  {% endif %}
+</div>
+
+<!-- Grand Totals -->
+<div class="grand-totals">
+  <h3>Budget Summary — {{ budget.currency }}</h3>
+
+  <div class="total-line">
+    <span class="label">Services & Activities</span>
+    <span class="amount">{{ '%.2f'|format(budget.services_total) }} {{ budget.currency }}</span>
+  </div>
+  <div class="total-line">
+    <span class="label">Hotels (single rooms)</span>
+    <span class="amount">{{ '%.2f'|format(budget.hotels_total_single) }} {{ budget.currency }}</span>
+  </div>
+  <div class="total-line">
+    <span class="label">Hotels (twin rooms)</span>
+    <span class="amount">{{ '%.2f'|format(budget.hotels_total_twin) }} {{ budget.currency }}</span>
+  </div>
+  <div class="total-line grand">
+    <span class="label">Grand Total (single rooms)</span>
+    <span class="amount">{{ '%.2f'|format(budget.grand_total_single) }} {{ budget.currency }}</span>
+  </div>
+  <div class="total-line grand" style="color:#a05000; border-color:#f9ab00;">
+    <span class="label">Grand Total (twin rooms)</span>
+    <span class="amount">{{ '%.2f'|format(budget.grand_total_twin) }} {{ budget.currency }}</span>
+  </div>
+</div>
+
+{% if proposal.special_requests %}
+<div class="section-card" style="margin-top:20px">
+  <div class="section-head green">📋 Special Requests / Notes</div>
+  <div style="padding:16px 20px">
+    <div class="special-box">{{ proposal.special_requests }}</div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
