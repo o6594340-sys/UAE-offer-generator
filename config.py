@@ -6,8 +6,11 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).parent
 
-# Use LOCALAPPDATA for DB to avoid Cyrillic path issues on Windows
-_DB_DIR = Path(os.environ.get('LOCALAPPDATA', str(BASE_DIR))) / 'insiders_dubai'
+# On Windows use LOCALAPPDATA, on Linux (Railway) use BASE_DIR/instance
+if os.name == 'nt':
+    _DB_DIR = Path(os.environ.get('LOCALAPPDATA', str(BASE_DIR))) / 'insiders_dubai'
+else:
+    _DB_DIR = BASE_DIR / 'instance'
 _DB_DIR.mkdir(parents=True, exist_ok=True)
 _DB_PATH = _DB_DIR / 'insiders.db'
 
