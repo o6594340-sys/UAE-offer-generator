@@ -283,6 +283,8 @@ def _generate_excel(proposal, budget):
 
     wb = Workbook()
     wb.remove(wb.active)          # remove default sheet; we add per hotel below
+    wb.calculation.calcMode = 'auto'
+    wb.calculation.fullCalcOnLoad = True
 
     cur = budget['currency']
     tgt_r = _get_rate(proposal.currency_code)
