@@ -218,31 +218,34 @@ def extract_from_brief_text(text: str) -> dict:
     if not api_key or api_key == 'your-api-key-here':
         return {"error": "ANTHROPIC_API_KEY not configured"}
 
-    client = anthropic.Anthropic(api_key=api_key)
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
-        system=BRIEF_SYSTEM_PROMPT,
-        messages=[{
-            "role": "user",
-            "content": BRIEF_EXTRACTION_PROMPT.format(text=text)
-        }]
-    )
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        message = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            system=BRIEF_SYSTEM_PROMPT,
+            messages=[{
+                "role": "user",
+                "content": BRIEF_EXTRACTION_PROMPT.replace('{text}', text)
+            }]
+        )
 
-    response_text = message.content[0].text.strip()
-    if response_text.startswith("```"):
-        lines = response_text.split("\n")
-        response_text = "\n".join(lines[1:-1])
+        response_text = message.content[0].text.strip()
+        if response_text.startswith("```"):
+            lines = response_text.split("\n")
+            response_text = "\n".join(lines[1:-1])
 
-    start = response_text.find('{')
-    end = response_text.rfind('}') + 1
-    if start >= 0 and end > start:
-        try:
-            return json.loads(response_text[start:end])
-        except json.JSONDecodeError:
-            pass
+        start = response_text.find('{')
+        end = response_text.rfind('}') + 1
+        if start >= 0 and end > start:
+            try:
+                return json.loads(response_text[start:end])
+            except json.JSONDecodeError:
+                pass
 
-    return {"error": "Could not parse AI response"}
+        return {"error": "Could not parse AI response"}
+    except Exception as e:
+        return {"error": f"AI extraction failed: {str(e)}"}
 
 SYSTEM_PROMPT = """You are an expert at extracting structured tourism product data from PowerPoint presentations for a UAE destination management company.
 

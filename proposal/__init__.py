@@ -115,20 +115,23 @@ def brief_form():
 
 @proposal_bp.route('/brief/parse', methods=['POST'])
 def parse_brief():
-    text = None
-    if 'file' in request.files and request.files['file'].filename:
-        f = request.files['file']
-        text = extract_text_from_brief(f.read(), f.filename)
-    elif request.form.get('text'):
-        text = request.form.get('text')
+    try:
+        text = None
+        if 'file' in request.files and request.files['file'].filename:
+            f = request.files['file']
+            text = extract_text_from_brief(f.read(), f.filename)
+        elif request.form.get('text'):
+            text = request.form.get('text')
 
-    if not text or not text.strip():
-        return jsonify({'error': 'No content provided'}), 400
+        if not text or not text.strip():
+            return jsonify({'error': 'No content provided'}), 400
 
-    result = extract_from_brief_text(text)
-    if 'error' in result:
-        return jsonify({'error': result['error']}), 500
-    return jsonify(result)
+        result = extract_from_brief_text(text)
+        if 'error' in result:
+            return jsonify({'error': result['error']}), 500
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 
 @proposal_bp.route('/brief/suggest', methods=['POST'])
