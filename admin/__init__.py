@@ -7,6 +7,7 @@ from pathlib import Path
 import os
 from models import db, Hotel, Service, ServiceCategory, Currency
 from utils.pptx_extractor import extract_text_from_pptx
+from utils.pdf_extractor import extract_text_from_pdf
 from utils.ai_extractor import extract_from_pptx_text, extract_services_from_excel_text
 from utils.excel_extractor import extract_text_from_excel
 
@@ -359,7 +360,7 @@ def toggle_service(service_id):
 
 # ===================== PPT IMPORT =====================
 
-ALLOWED_IMPORT_EXTENSIONS = {'pptx', 'ppt', 'xlsx', 'xls'}
+ALLOWED_IMPORT_EXTENSIONS = {'pptx', 'ppt', 'xlsx', 'xls', 'pdf'}
 
 
 def _allowed_import(filename):
@@ -413,6 +414,10 @@ def import_upload():
                 file_bytes = f.read()
                 if ext in ('pptx', 'ppt'):
                     text = extract_text_from_pptx(file_bytes)
+                    if text.strip():
+                        pptx_parts.append(f"=== {f.filename} ===\n{text}")
+                elif ext == 'pdf':
+                    text = extract_text_from_pdf(file_bytes)
                     if text.strip():
                         pptx_parts.append(f"=== {f.filename} ===\n{text}")
                 elif ext in ('xlsx', 'xls'):
