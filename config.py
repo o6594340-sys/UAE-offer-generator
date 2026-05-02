@@ -24,10 +24,9 @@ class Config:
 
     # Database
     INSTANCE_PATH = BASE_DIR / 'instance'
-    SQLALCHEMY_DATABASE_URI = os.getenv(
-        'DATABASE_URL',
-        f"sqlite:///{_DB_PATH.as_posix()}"
-    )
+    _raw_db_url = os.getenv('DATABASE_URL', f"sqlite:///{_DB_PATH.as_posix()}")
+    # Railway provides postgres://, SQLAlchemy requires postgresql://
+    SQLALCHEMY_DATABASE_URI = _raw_db_url.replace('postgres://', 'postgresql://', 1)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # File uploads
