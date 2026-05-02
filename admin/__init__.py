@@ -462,32 +462,42 @@ def import_save():
         return jsonify({'error': 'No data'}), 400
 
     saved = {'hotels': 0, 'services': 0}
-    skipped_duplicates = 0
+    updated = {'hotels': 0, 'services': 0}
 
-    existing_service_names = {s.name.strip().lower() for s in Service.query.all()}
+    existing_hotels = {h.name.strip().lower(): h for h in Hotel.query.all()}
+    existing_services = {s.name.strip().lower(): s for s in Service.query.all()}
 
     for h in data.get('hotels', []):
         if not h.get('selected'):
             continue
-        hotel = Hotel(
-            name=h.get('name', 'Unknown Hotel'),
-            location=h.get('location', 'Dubai'),
-            description=h.get('description', ''),
-            stars=int(h.get('stars', 5)),
-            rate_single_aed=float(h.get('rate_single_aed', 0)),
-            rate_twin_aed=float(h.get('rate_twin_aed', 0)),
-            website_url=h.get('website_url', ''),
-        )
-        db.session.add(hotel)
-        saved['hotels'] += 1
+        name = h.get('name', 'Unknown Hotel')
+        existing = existing_hotels.get(name.strip().lower())
+        if existing:
+            existing.location = h.get('location', existing.location)
+            existing.description = h.get('description', existing.description)
+            existing.stars = int(h.get('stars', existing.stars))
+            existing.rate_single_aed = float(h.get('rate_single_aed', existing.rate_single_aed))
+            existing.rate_twin_aed = float(h.get('rate_twin_aed', existing.rate_twin_aed))
+            existing.website_url = h.get('website_url', existing.website_url)
+            updated['hotels'] += 1
+        else:
+            hotel = Hotel(
+                name=name,
+                location=h.get('location', 'Dubai'),
+                description=h.get('description', ''),
+                stars=int(h.get('stars', 5)),
+                rate_single_aed=float(h.get('rate_single_aed', 0)),
+                rate_twin_aed=float(h.get('rate_twin_aed', 0)),
+                website_url=h.get('website_url', ''),
+            )
+            db.session.add(hotel)
+            saved['hotels'] += 1
 
     for s in data.get('services', []):
         if not s.get('selected'):
             continue
         name = s.get('name', 'Unknown Service')
-        if name.strip().lower() in existing_service_names:
-            skipped_duplicates += 1
-            continue
+        existing = existing_services.get(name.strip().lower())
 
         category_name = s.get('category', 'Additional Services')
         category = ServiceCategory.query.filter_by(name=category_name).first()
@@ -496,16 +506,23 @@ def import_save():
             db.session.add(category)
             db.session.flush()
 
-        service = Service(
-            name=name,
-            description=s.get('description', ''),
-            category_id=category.id,
-            price_aed=float(s.get('price_aed', 0)),
-            unit=s.get('unit', 'per person'),
-        )
-        db.session.add(service)
-        saved['services'] += 1
-        existing_service_names.add(name.strip().lower())
+        if existing:
+            existing.description = s.get('description', existing.description)
+            existing.price_aed = float(s.get('price_aed', existing.price_aed))
+            existing.unit = s.get('unit', existing.unit)
+            existing.category_id = category.id
+            updated['services'] += 1
+        else:
+            service = Service(
+                name=name,
+                description=s.get('description', ''),
+                category_id=category.id,
+                price_aed=float(s.get('price_aed', 0)),
+                unit=s.get('unit', 'per person'),
+            )
+            db.session.add(service)
+            saved['services'] += 1
+            existing_services[name.strip().lower()] = service
 
     db.session.commit()
-    return jsonify({'success': True, 'saved': saved, 'skipped_duplicates': skipped_duplicates})
+    return jsonify({'success': True, 'saved': saved, 'updated': updated})
