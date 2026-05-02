@@ -5,7 +5,12 @@
 {% block content %}
 <div class="card">
     <h2>💱 Manage Currencies</h2>
-    <p>Set exchange rates for your proposals. AED is the base currency.</p>
+    <p>Set exchange rates for your proposals. AED is the base currency.
+      <button onclick="refreshRates()" id="refresh-btn" class="btn" style="margin-left:12px; font-size:13px; padding:6px 14px; background:#34a853;">
+        🔄 Обновить реальные курсы
+      </button>
+      <span id="refresh-status" style="font-size:13px; margin-left:8px; color:#888;"></span>
+    </p>
     
     {% if currencies %}
     <table>
@@ -56,6 +61,37 @@
 </div>
 
 <script>
+async function refreshRates() {
+  const btn = document.getElementById('refresh-btn');
+  const status = document.getElementById('refresh-status');
+  btn.disabled = true;
+  btn.textContent = '⏳ Загружаю...';
+  status.textContent = '';
+  try {
+    const resp = await fetch('/admin/currencies/refresh', { method: 'POST' });
+    const data = await resp.json();
+    if (data.success) {
+      // Update displayed real rate inputs
+      document.querySelectorAll('input[data-real-rate]').forEach(input => {
+        const code = input.dataset.realRate;
+        if (data.rates[code] !== undefined) input.value = data.rates[code];
+      });
+      status.textContent = '✅ Курсы обновлены (' + new Date().toLocaleTimeString() + ')';
+      status.style.color = '#1e6e2e';
+      setTimeout(() => location.reload(), 800);
+    } else {
+      status.textContent = '⚠️ ' + (data.error || 'Ошибка');
+      status.style.color = '#c62828';
+    }
+  } catch (e) {
+    status.textContent = '⚠️ Нет соединения';
+    status.style.color = '#c62828';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔄 Обновить реальные курсы';
+  }
+}
+
 function saveCurrency(currencyId) {
     const rateInput = document.querySelector(`input.currency-rate[data-currency-id="${currencyId}"]`);
     const activeInput = document.querySelector(`input.currency-active[data-currency-id="${currencyId}"]`);

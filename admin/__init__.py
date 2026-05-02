@@ -62,6 +62,25 @@ def update_currency(currency_id):
     return jsonify({'success': True, 'message': 'Currency updated'})
 
 
+@admin_bp.route('/currencies/refresh', methods=['POST'])
+def refresh_rates():
+    import requests as req
+    try:
+        resp = req.get('https://api.frankfurter.app/latest?from=USD', timeout=8)
+        data = resp.json()
+        rates = data.get('rates', {})
+        rates['USD'] = 1.0
+        updated = {}
+        for currency in Currency.query.all():
+            if currency.code in rates:
+                currency.real_rate = round(float(rates[currency.code]), 4)
+                updated[currency.code] = currency.real_rate
+        db.session.commit()
+        return jsonify({'success': True, 'rates': updated})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @admin_bp.route('/currencies/init', methods=['POST'])
 def init_currencies():
     """Initialize default currencies"""
