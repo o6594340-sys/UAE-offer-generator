@@ -431,10 +431,18 @@ def _generate_excel(proposal, budget, itinerary=None):
         written_ids = set()
 
         if itinerary:
+            from datetime import timedelta
             for day in itinerary:
-                # Day header row
-                day_label = day.get('label') or f"Day {day['day']}"
-                c = ws.cell(row, 2, f"Day {day['day']}  —  {day_label}")
+                day_num = day['day']
+                day_label = day.get('label') or f"Day {day_num}"
+                # Calculate date for this day
+                if proposal.arrival_date:
+                    day_date = proposal.arrival_date + timedelta(days=day_num - 1)
+                    date_str = day_date.strftime('%d.%m.%Y')
+                    header_text = f"Day {day_num}  |  {date_str}  —  {day_label}"
+                else:
+                    header_text = f"Day {day_num}  —  {day_label}"
+                c = ws.cell(row, 2, header_text)
                 c.font = Font(bold=True, size=11)
                 c.fill = px('D9E1F2')
                 c.alignment = Alignment(horizontal='left')
