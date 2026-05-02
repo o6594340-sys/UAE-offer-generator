@@ -391,7 +391,11 @@ def test_api():
 
 @admin_bp.route('/import')
 def import_page():
-    return render_template('admin/import.html')
+    existing_hotel_names = [h.name.strip().lower() for h in Hotel.query.all()]
+    existing_service_names = [s.name.strip().lower() for s in Service.query.all()]
+    return render_template('admin/import.html',
+                           existing_hotel_names=existing_hotel_names,
+                           existing_service_names=existing_service_names)
 
 
 @admin_bp.route('/import/upload', methods=['POST'])

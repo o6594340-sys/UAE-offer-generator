@@ -128,6 +128,16 @@
   .save-bar .selected-count { font-weight: 600; color: #333; }
   #save-btn { font-size: 15px; padding: 11px 28px; }
 
+  .duplicate-badge {
+    display: inline-block;
+    background: #fff3cd; color: #856404;
+    border: 1px solid #ffc107;
+    border-radius: 4px; font-size: 11px; font-weight: 600;
+    padding: 2px 8px; margin-bottom: 8px;
+  }
+  .item-card.is-duplicate { border-color: #ffc107; }
+  .item-card.is-duplicate.selected { border-color: #e6a817; box-shadow: 0 0 0 3px rgba(255,193,7,0.2); }
+
   .error-box {
     background: #fce8e6; color: #c62828;
     border: 1px solid #f5c6cb; border-radius: 8px;
@@ -150,7 +160,7 @@
   <p style="color:#666; margin-bottom:20px;">
     Upload one or more <strong>PPTX</strong> or <strong>Excel (.xlsx)</strong> files.
     AI will automatically extract hotels, restaurants, activities, and services.
-    You can review and edit everything before saving. Duplicate services (same name) will be skipped automatically.
+    You can review and edit everything before saving. Items already in the database are marked with ⚠️ — keep them checked to update, or uncheck to skip.
   </p>
 
   <div class="dropzone" id="dropzone">
@@ -227,6 +237,9 @@ const CATEGORIES = [
   "Additional Services"
 ];
 const UNITS = ["per person", "per room", "per event", "per day", "per group", "fixed"];
+
+const EXISTING_HOTELS = new Set({{ existing_hotel_names | tojson }});
+const EXISTING_SERVICES = new Set({{ existing_service_names | tojson }});
 
 let selectedFiles = [];
 let extractedData = { hotels: [], services: [] };
@@ -335,14 +348,16 @@ function renderResults(data) {
 }
 
 function buildHotelCard(h, i) {
+  const isDup = EXISTING_HOTELS.has((h.name || '').trim().toLowerCase());
   const card = document.createElement('div');
-  card.className = 'item-card selected';
+  card.className = 'item-card selected' + (isDup ? ' is-duplicate' : '');
   card.dataset.type = 'hotel';
   card.dataset.idx = i;
   card.innerHTML = `
     <input type="checkbox" class="card-check" checked onchange="toggleCard(this)">
     <button class="card-remove-btn" onclick="removeCard(this)" title="Remove">✕</button>
     <div class="card-type hotel">Hotel</div>
+    ${isDup ? '<div class="duplicate-badge">⚠️ Already in DB — will update if checked</div>' : ''}
     <div class="field">
       <label>Name</label>
       <input type="text" value="${esc(h.name)}" onchange="extractedData.hotels[${i}].name=this.value">
@@ -382,16 +397,18 @@ function buildHotelCard(h, i) {
 }
 
 function buildServiceCard(s, i) {
+  const isDup = EXISTING_SERVICES.has((s.name || '').trim().toLowerCase());
   const catOptions = CATEGORIES.map(c => `<option ${s.category===c?'selected':''}>${c}</option>`).join('');
   const unitOptions = UNITS.map(u => `<option ${s.unit===u?'selected':''}>${u}</option>`).join('');
   const card = document.createElement('div');
-  card.className = 'item-card selected';
+  card.className = 'item-card selected' + (isDup ? ' is-duplicate' : '');
   card.dataset.type = 'service';
   card.dataset.idx = i;
   card.innerHTML = `
     <input type="checkbox" class="card-check" checked onchange="toggleCard(this)">
     <button class="card-remove-btn" onclick="removeCard(this)" title="Remove">✕</button>
     <div class="card-type service">${esc(s.category || 'Service')}</div>
+    ${isDup ? '<div class="duplicate-badge">⚠️ Already in DB — will update if checked</div>' : ''}
     <div class="field">
       <label>Name</label>
       <input type="text" value="${esc(s.name)}" onchange="extractedData.services[${i}].name=this.value">
@@ -494,8 +511,9 @@ async function saveSelected() {
 
     if (data.success) {
       const msg = document.getElementById('success-msg');
-      const dupNote = data.skipped_duplicates ? `<br><small style="color:#888">${data.skipped_duplicates} duplicate(s) skipped (already exist in database)</small>` : '';
-      msg.innerHTML = `✅ Saved: <strong>${data.saved.hotels} hotels</strong> and <strong>${data.saved.services} services</strong>.${dupNote}
+      const updNote = (data.updated && (data.updated.hotels + data.updated.services) > 0)
+        ? `<br><small style="color:#888">Updated: ${data.updated.hotels} hotel(s), ${data.updated.services} service(s)</small>` : '';
+      msg.innerHTML = `✅ Saved: <strong>${data.saved.hotels} hotels</strong> and <strong>${data.saved.services} services</strong>.${updNote}
         <br><a href="/admin/hotels" class="btn" style="margin:10px 5px 0">View Hotels</a>
         <a href="/admin/services" class="btn" style="margin:10px 5px 0">View Services</a>`;
       msg.style.display = 'block';
