@@ -20,6 +20,7 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     DEBUG = False
     TESTING = False
+    WTF_CSRF_ENABLED = False
 
     # Database
     INSTANCE_PATH = BASE_DIR / 'instance'
