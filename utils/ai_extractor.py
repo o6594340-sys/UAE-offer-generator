@@ -295,7 +295,7 @@ Presentation text:
 
 
 EXCEL_SYSTEM_PROMPT = """You are an expert at extracting structured hotel and tourism service data from Excel price lists for a UAE destination management company.
-Return ONLY valid JSON, no explanation."""
+Return ONLY valid JSON, no explanation. Keep all description fields to 1 short sentence maximum to avoid exceeding token limits."""
 
 EXCEL_EXTRACTION_PROMPT = """Extract hotels and services from the following Excel spreadsheet data.
 
@@ -372,7 +372,7 @@ def extract_services_from_excel_text(text: str) -> dict:
 
         message = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=8096,
+            max_tokens=16000,
             system=EXCEL_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}]
         )
