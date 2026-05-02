@@ -75,6 +75,7 @@ def _build_budget(proposal):
             qty = 1
         total_usd = s.price_aed * qty   # field stores USD despite name
         service_rows.append({
+            'id': s.id,
             'name': s.name,
             'category': s.category.name if s.category else '',
             'price_usd': s.price_aed,
@@ -264,7 +265,8 @@ def update_itinerary_route(proposal_id):
 def export_excel(proposal_id):
     proposal = Proposal.query.get_or_404(proposal_id)
     budget = _build_budget(proposal)
-    output = _generate_excel(proposal, budget)
+    itinerary = _parse_itinerary(proposal)
+    output = _generate_excel(proposal, budget, itinerary)
     filename = f"Proposal_{proposal.company_name.replace(' ', '_')}.xlsx"
     return send_file(output, as_attachment=True,
                      download_name=filename,
@@ -276,7 +278,7 @@ def export_excel(proposal_id):
 PINK = 'FF33CC'       # table header fill (matches original)
 YELLOW = 'FFFF00'     # optional rows
 
-def _generate_excel(proposal, budget):
+def _generate_excel(proposal, budget, itinerary=None):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
@@ -397,33 +399,86 @@ def _generate_excel(proposal, budget):
         row += 1
 
         # ── Services section ──
-        svc_rows = []
-        for s in services:
+        # Build lookup dicts for quick access
+        svc_by_id = {s['id']: s for s in services}
+        svc_by_name = {s['name'].lower(): s for s in services}
+
+        def _write_svc_row(ws, row, s, timing='', note=''):
             unit = s['unit']
             if unit == 'per person':
-                qty = pax
-                freq = 1
+                qty, freq = pax, 1
             elif unit == 'per day':
-                qty = 1
-                freq = nights
+                qty, freq = 1, nights
             elif unit == 'per room':
-                qty = math.ceil(pax / 2)
-                freq = 1
+                qty, freq = math.ceil(pax / 2), 1
             else:
-                qty = 1
-                freq = 1
-
-            svc_row = row
-            svc_rows.append(svc_row)
+                qty, freq = 1, 1
+            ws.cell(row, 1, timing).alignment = Alignment(horizontal='center')
             ws.cell(row, 2, s['name'])
             ws.cell(row, 2).alignment = Alignment(horizontal='left', wrap_text=True)
             ws.cell(row, 3, qty).alignment = Alignment(horizontal='center')
             ws.cell(row, 4, freq).alignment = Alignment(horizontal='center')
             ws.cell(row, 5, _price(s['price_usd'])).alignment = Alignment(horizontal='center')
             ws.cell(row, 6, f'=C{row}*D{row}*E{row}').alignment = Alignment(horizontal='center')
-            ws.cell(row, 7, s['category'])
+            ws.cell(row, 7, note or s['category'])
             ws.row_dimensions[row].height = 28.8
-            row += 1
+            return row
+
+        svc_rows = []
+        written_ids = set()
+
+        if itinerary:
+            for day in itinerary:
+                # Day header row
+                day_label = day.get('label') or f"Day {day['day']}"
+                c = ws.cell(row, 2, f"Day {day['day']}  —  {day_label}")
+                c.font = Font(bold=True, size=11)
+                c.fill = px('D9E1F2')
+                c.alignment = Alignment(horizontal='left')
+                ws.merge_cells(f'A{row}:G{row}')
+                ws.row_dimensions[row].height = 20
+                row += 1
+
+                for item in day.get('items', []):
+                    sid = item.get('service_id')
+                    sname = (item.get('service_name') or item.get('name') or '').lower()
+                    s = svc_by_id.get(sid) or svc_by_name.get(sname)
+                    if s:
+                        _write_svc_row(ws, row, s,
+                                       timing=item.get('timing', ''),
+                                       note=item.get('note', ''))
+                        svc_rows.append(row)
+                        written_ids.add(s['id'])
+                        row += 1
+                    elif item.get('service_name') or item.get('name'):
+                        # Service mentioned in itinerary but not in DB — write as text
+                        name = item.get('service_name') or item.get('name') or ''
+                        ws.cell(row, 1, item.get('timing', '')).alignment = Alignment(horizontal='center')
+                        ws.cell(row, 2, name).alignment = Alignment(horizontal='left', wrap_text=True)
+                        ws.cell(row, 7, item.get('note', ''))
+                        ws.row_dimensions[row].height = 28.8
+                        svc_rows.append(row)
+                        row += 1
+
+            # Write any selected services not mentioned in itinerary
+            remaining = [s for s in services if s['id'] not in written_ids]
+            if remaining:
+                c = ws.cell(row, 2, 'Additional Services')
+                c.font = Font(bold=True, size=11)
+                c.fill = px('D9E1F2')
+                ws.merge_cells(f'A{row}:G{row}')
+                ws.row_dimensions[row].height = 20
+                row += 1
+                for s in remaining:
+                    _write_svc_row(ws, row, s)
+                    svc_rows.append(row)
+                    row += 1
+        else:
+            # No itinerary — flat list as before
+            for s in services:
+                _write_svc_row(ws, row, s)
+                svc_rows.append(row)
+                row += 1
 
         # Services subtotal
         svc_total_row = row
