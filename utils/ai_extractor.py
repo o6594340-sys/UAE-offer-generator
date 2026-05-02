@@ -366,7 +366,9 @@ def extract_services_from_excel_text(text: str) -> dict:
     try:
         client = anthropic.Anthropic(api_key=api_key)
 
-        prompt = EXCEL_EXTRACTION_PROMPT.replace('{{text}}', text).replace('{{', '{').replace('}}', '}')
+        # Replace template placeholders before inserting text to avoid curly brace conflicts
+        template = EXCEL_EXTRACTION_PROMPT.replace('{{text}}', '__EXCEL_TEXT__').replace('{{', '{').replace('}}', '}')
+        prompt = template.replace('__EXCEL_TEXT__', text)
 
         message = client.messages.create(
             model="claude-sonnet-4-6",
@@ -385,10 +387,10 @@ def extract_services_from_excel_text(text: str) -> dict:
         if start >= 0 and end > start:
             try:
                 return json.loads(response_text[start:end])
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as e:
+                return {"error": f"JSON parse error: {e} | Response preview: {response_text[:300]}", "hotels": [], "services": []}
 
-        return {"error": "Could not parse AI response", "hotels": [], "services": []}
+        return {"error": f"No JSON in response. Preview: {response_text[:300]}", "hotels": [], "services": []}
     except Exception as e:
         return {"error": f"AI extraction failed: {str(e)}", "hotels": [], "services": []}
 
