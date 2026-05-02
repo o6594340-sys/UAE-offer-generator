@@ -7,7 +7,7 @@
     <h2>💱 Manage Currencies</h2>
     <p>Set exchange rates for your proposals. AED is the base currency.
       <button onclick="refreshRates()" id="refresh-btn" class="btn" style="margin-left:12px; font-size:13px; padding:6px 14px; background:#34a853;">
-        🔄 Обновить реальные курсы
+        🔄 Refresh Real Rates
       </button>
       <span id="refresh-status" style="font-size:13px; margin-left:8px; color:#888;"></span>
     </p>
@@ -65,7 +65,7 @@ async function refreshRates() {
   const btn = document.getElementById('refresh-btn');
   const status = document.getElementById('refresh-status');
   btn.disabled = true;
-  btn.textContent = '⏳ Загружаю...';
+  btn.textContent = '⏳ Loading...';
   status.textContent = '';
   try {
     const resp = await fetch('/admin/currencies/refresh', { method: 'POST' });
@@ -76,7 +76,7 @@ async function refreshRates() {
         const code = input.dataset.realRate;
         if (data.rates[code] !== undefined) input.value = data.rates[code];
       });
-      status.textContent = '✅ Курсы обновлены (' + new Date().toLocaleTimeString() + ')';
+      status.textContent = '✅ Rates updated (' + new Date().toLocaleTimeString() + ')';
       status.style.color = '#1e6e2e';
       setTimeout(() => location.reload(), 800);
     } else {
@@ -88,7 +88,7 @@ async function refreshRates() {
     status.style.color = '#c62828';
   } finally {
     btn.disabled = false;
-    btn.textContent = '🔄 Обновить реальные курсы';
+    btn.textContent = '🔄 Refresh Real Rates';
   }
 }
 
